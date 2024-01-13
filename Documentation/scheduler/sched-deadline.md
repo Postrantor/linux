@@ -13,14 +13,14 @@ title: Deadline Task Scheduling
   - [3.1 Definitions](#31-definitions)
   - [3.2 Schedulability Analysis for Uniprocessor Systems](#32-schedulability-analysis-for-uniprocessor-systems)
   - [3.3 Schedulability Analysis for Multiprocessor Systems](#33-schedulability-analysis-for-multiprocessor-systems)
-  - [3.4 Relationship with SCHED\_DEADLINE Parameters](#34-relationship-with-sched_deadline-parameters)
+  - [3.4 Relationship with SCHED_DEADLINE Parameters](#34-relationship-with-sched_deadline-parameters)
 - [4. Bandwidth management](#4-bandwidth-management)
   - [4.1 System wide settings](#41-system-wide-settings)
   - [4.2 Task interface](#42-task-interface)
   - [4.3 Default behavior](#43-default-behavior)
-  - [4.4 Behavior of sched\_yield()](#44-behavior-of-sched_yield)
+  - [4.4 Behavior of sched_yield()](#44-behavior-of-sched_yield)
 - [5. Tasks CPU affinity](#5-tasks-cpu-affinity)
-  - [5.1 SCHED\_DEADLINE and cpusets HOWTO](#51-sched_deadline-and-cpusets-howto)
+  - [5.1 SCHED_DEADLINE and cpusets HOWTO](#51-sched_deadline-and-cpusets-howto)
 - [6. Future plans](#6-future-plans)
 - [Appendix A. Test suite](#appendix-a-test-suite)
 - [Appendix B. Minimal main()](#appendix-b-minimal-main)
@@ -33,40 +33,37 @@ Fiddling with these settings can result in an unpredictable or even unstable sys
 
 # 1. Overview
 
-The SCHED_DEADLINE policy contained inside the sched_dl scheduling class is basically an implementation of the Earliest Deadline First (EDF) scheduling algorithm, augmented with a mechanism (called Constant Bandwidth Server, CBS) that makes it possible to isolate the behavior of tasks between each other.
+The `SCHED_DEADLINE` policy contained inside the sched_dl scheduling class is basically an implementation of the Earliest Deadline First (EDF) scheduling algorithm, augmented with a mechanism (called Constant Bandwidth Server, CBS) that makes it possible to isolate the behavior of tasks between each other.
 
-> SCHED_dl 调度类中包含的 SCHED_DEADLINE 策略基本上是最早截止日期优先(EDF)调度算法的实现，并添加了一种机制(称为恒定带宽服务器，CBS)，可以将任务的行为相互隔离。
+> `sched_dl` 调度类中包含的 `SCHED_DEADLINE` 策略基本上是最早截止日期优先(EDF)调度算法的实现，并添加了一种机制(称为恒定带宽服务器，CBS)，可以将任务的行为相互隔离。
 
 # 2. Scheduling algorithm
 
 ## 2.1 Main algorithm
 
-SCHED_DEADLINE \[18\] uses three parameters, named \"runtime\", \"period\", and \"deadline\", to schedule tasks. A SCHED_DEADLINE task should receive \"runtime\" microseconds of execution time every \"period\" microseconds, and these \"runtime\" microseconds are available within \"deadline\" microseconds from the beginning of the period. In order to implement this behavior, every time the task wakes up, the scheduler computes a \"scheduling deadline\" consistent with the guarantee (using the CBS\[2,3\] algorithm). Tasks are then scheduled using EDF\[1\] on these scheduling deadlines (the task with the earliest scheduling deadline is selected for execution). Notice that the task actually receives \"runtime\" time units within \"deadline\" if a proper \"admission control\" strategy (see Section \"4. Bandwidth management\") is used (clearly, if the system is overloaded this guarantee cannot be respected).
+`SCHED_DEADLINE` [18] uses three parameters, named "runtime", "period", and "deadline", to schedule tasks. A `SCHED_DEADLINE` task should receive "runtime" microseconds of execution time every "period" microseconds, and these "runtime" microseconds are available within "deadline" microseconds from the beginning of the period. In order to implement this behavior, every time the task wakes up, the scheduler computes a "scheduling deadline" consistent with the guarantee (using the CBS[2,3] algorithm). Tasks are then scheduled using EDF[1] on these scheduling deadlines (the task with the earliest scheduling deadline is selected for execution). Notice that the task actually receives "runtime" time units within "deadline" if a proper "admission control" strategy (see Section "4. Bandwidth management") is used (clearly, if the system is overloaded this guarantee cannot be respected).
 
-> SCHED_DEADLINE\[18\]使用三个名为“运行时”、“周期”和“截止日期”的参数来安排任务。SCHED_DEADLINE 任务应每“period”微秒接收“runtime”微秒的执行时间，并且这些“runtimes”微秒在从周期开始的“DEADLINE”微秒内可用。为了实现这种行为，每次任务唤醒时，调度器都会计算一个与保证一致的“调度截止日期”(使用 CBS\[2,3\]算法)。然后在这些调度截止日期使用 EDF\[1\]调度任务(选择调度截止日期最早的任务执行)。请注意，如果采用适当的“准入控制”策略，任务实际上会在“截止日期”内接收“运行时”时间单位(请参见第 4 节)。带宽管理”)(显然，如果系统过载，则不能遵守此保证)。
+> `SCHED_DEADLINE` [18]使用三个名为 `runtime`、`period`和`deadline`的参数来安排任务。`SCHED_DEADLINE` 任务应每`period`接收`runtime`的执行时间，并且这些`runtimes`在从周期开始的`deadline`内可用。为了实现这种行为，每次任务唤醒时，调度器都会计算一个与保证一致的“调度截止日期”(使用 CBS[2,3]算法)。然后在这些调度截止日期使用 EDF[1]调度任务(选择调度截止日期最早的任务执行)。请注意，如果采用适当的“准入控制”策略，任务实际上会在“截止日期”内接收“运行时”时间单位(请参见第 4 节)。带宽管理”(显然，如果系统过载，则不能遵守此保证)。
 
-Summing up, the CBS\[2,3\] algorithm assigns scheduling deadlines to tasks so that each task runs for at most its runtime every period, avoiding any interference between different tasks (bandwidth isolation), while the EDF\[1\] algorithm selects the task with the earliest scheduling deadline as the one to be executed next. Thanks to this feature, tasks that do not strictly comply with the \"traditional\" real-time task model (see Section 3) can effectively use the new policy.
+Summing up, the CBS[2,3] algorithm assigns scheduling deadlines to tasks so that each task runs for at most its runtime every period, avoiding any interference between different tasks (bandwidth isolation), while the EDF[1] algorithm selects the task with the earliest scheduling deadline as the one to be executed next. Thanks to this feature, tasks that do not strictly comply with the "traditional" real-time task model (see Section 3) can effectively use the new policy.
 
-> 总之，CBS\[2,3\]算法为任务分配调度截止日期，使每个任务在每个周期最多运行其运行时间，避免不同任务之间的任何干扰(带宽隔离)，而 EDF\[1]算法则选择调度截止日期最早的任务作为下一个执行的任务。由于该功能，不严格遵守“传统”实时任务模型(见第 3 节)的任务可以有效地使用新策略。
+> 总之，**CBS[2,3]算法为任务分配调度截止日期**，使每个任务在每个周期最多运行其运行时间，避免不同任务之间的任何干扰(带宽隔离)，而 EDF[1]算法则选择调度截止日期最早的任务作为下一个执行的任务。由于该功能，不严格遵守“传统”实时任务模型(见第 3 节)的任务可以有效地使用新策略。
 
 In more details, the CBS algorithm assigns scheduling deadlines to tasks in the following way:
 
 > 更详细地说，CBS 算法以以下方式为任务分配调度截止日期：
 
-- Each SCHED_DEADLINE task is characterized by the \"runtime\", \"deadline\", and \"period\" parameters;
+- Each `SCHED_DEADLINE` task is characterized by the "runtime", "deadline", and "period" parameters;
+- The state of the task is described by a "scheduling deadline", and a "remaining runtime". These two parameters are initially set to 0;
+- When a `SCHED_DEADLINE` task wakes up (becomes ready for execution), the scheduler checks if:
 
-> -每个 SCHED_DEADLINE 任务都由\“runtime \”、\“DEADLINE \”和\“period \”参数表征；
-
-- The state of the task is described by a \"scheduling deadline\", and a \"remaining runtime\". These two parameters are initially set to 0;
-
-> -任务的状态由“调度截止日期”和“剩余运行时间”来描述。这两个参数最初被设置为 0；
-
-- When a SCHED_DEADLINE task wakes up (becomes ready for execution), the scheduler checks if:
+> - 每个 `SCHED_DEADLINE` 任务都由“runtime”、“DEADLINE”和“period”参数表征；
+> - 任务的状态由“调度截止日期”和“剩余运行时间”来描述。这两个参数最初被设置为 0；
 
 ```
-    remaining runtime                  runtime
-    ----------------------------------       ---------
-    scheduling deadline - current time           period
+    remaining runtime                       runtime
+    ----------------------------------                        ---------
+    scheduling deadline - current time          period
 ```
 
 then, if the scheduling deadline is smaller than the current time, or this condition is verified, the scheduling deadline and the remaining runtime are re-initialized as
@@ -83,7 +80,7 @@ otherwise, the scheduling deadline and the remaining runtime are left unchanged;
 
 - When a SCHED_DEADLINE task executes for an amount of time t, its remaining runtime is decreased as:
 
-> -当 SCHED_DEADLINE 任务执行一段时间 t 时，其剩余运行时间将减少为：
+> - 当 SCHED_DEADLINE 任务执行一段时间 t 时，其剩余运行时间将减少为：
 
 ```
     remaining runtime = remaining runtime - t
@@ -93,28 +90,28 @@ otherwise, the scheduling deadline and the remaining runtime are left unchanged;
 
 > (从技术上讲，运行时间在每一个节拍都会减少，或者当任务被取消计划/抢占时)；
 
-- When the remaining runtime becomes less or equal than 0, the task is said to be \"throttled\" (also known as \"depleted\" in real-time literature) and cannot be scheduled until its scheduling deadline. The \"replenishment time\" for this task (see next item) is set to be equal to the current value of the scheduling deadline;
+- When the remaining runtime becomes less or equal than 0, the task is said to be "throttled" (also known as "depleted" in real-time literature) and cannot be scheduled until its scheduling deadline. The "replenishment time" for this task (see next item) is set to be equal to the current value of the scheduling deadline;
 
-> -当剩余运行时间小于或等于 0 时，任务被称为“节流”(在实时文献中也称为“耗尽”)，在其调度截止日期之前无法进行调度。此任务的“补货时间”(见下一项)设置为等于计划截止日期的当前值；
+> - 当剩余运行时间小于或等于 0 时，任务被称为“节流”(在实时文献中也称为“耗尽”)，在其调度截止日期之前无法进行调度。此任务的“补货时间”(见下一项)设置为等于计划截止日期的当前值；
 
 - When the current time is equal to the replenishment time of a throttled task, the scheduling deadline and the remaining runtime are updated as:
 
-> -当当前时间等于限制任务的补充时间时，调度截止日期和剩余运行时间更新为：
+> - 当当前时间等于限制任务的补充时间时，调度截止日期和剩余运行时间更新为：
 
 ```
     scheduling deadline = scheduling deadline + period
     remaining runtime = remaining runtime + runtime
 ```
 
-The SCHED_FLAG_DL_OVERRUN flag in sched_attr\'s sched_flags field allows a task to get informed about runtime overruns through the delivery of SIGXCPU signals.
+The `SCHED_FLAG_DL_OVERRUN` flag in sched_attr\'s sched_flags field allows a task to get informed about runtime overruns through the delivery of `SIGXCPU` signals.
 
-> SCHED_attr 的 SCHED_flags 字段中的 SCHED_FLAG_DL_OVERRUN 标志允许任务通过传递 SIGXCPU 信号来获得有关运行时溢出的信息。
+> sched_attr 的 sched_flags 字段中的 `SCHED_FLAG_DL_OVERRUN` 标志允许任务通过传递 `SIGXCPU` 信号来获得有关运行时溢出的信息。
 
 ## 2.2 Bandwidth reclaiming
 
-Bandwidth reclaiming for deadline tasks is based on the GRUB (Greedy Reclamation of Unused Bandwidth) algorithm \[15, 16, 17\] and it is enabled when flag SCHED_FLAG_RECLAIM is set.
+Bandwidth reclaiming for deadline tasks is based on the GRUB (Greedy Reclamation of Unused Bandwidth) algorithm [15, 16, 17] and it is enabled when flag SCHED_FLAG_RECLAIM is set.
 
-> 截止日期任务的带宽回收基于 GRUB(未使用带宽的贪婪回收)算法\[15，16，17\]，并且在设置标志 SCHED_flag_RECLAIM 时启用。
+> 截止日期任务的带宽回收基于 GRUB(未使用带宽的贪婪回收)算法[15，16，17]，并且在设置标志 SCHED_FLAG_RECLAIM 时启用。
 
 The following diagram illustrates the state names for tasks handled by GRUB:
 
@@ -148,7 +145,7 @@ A task can be in one of the following states:
 
 State transitions:
 
-(a) When a task blocks, it does not become immediately inactive since its bandwidth cannot be immediately reclaimed without breaking the real-time guarantees. It therefore enters a transitional state called ActiveNonContending. The scheduler arms the \"inactive timer\" to fire at the 0-lag time, when the task\'s bandwidth can be reclaimed without breaking the real-time guarantees.
+(a) When a task blocks, it does not become immediately inactive since its bandwidth cannot be immediately reclaimed without breaking the real-time guarantees. It therefore enters a transitional state called ActiveNonContending. The scheduler arms the "inactive timer" to fire at the 0-lag time, when the task\'s bandwidth can be reclaimed without breaking the real-time guarantees.
 
 > (a) 当任务阻塞时，它不会立即变为非活动状态，因为它的带宽不能在不破坏实时保证的情况下立即回收。因此，它进入一种称为 ActiveNonContending 的过渡状态。当任务的带宽可以在不破坏实时保证的情况下回收时，调度程序会将“非活动计时器”武装到 0 滞后时间启动。
 
@@ -166,11 +163,11 @@ where runtime is the remaining runtime, while dl_runtime and dl_period are the r
 
 > 其中 runtime 是剩余的运行时，而 dl_runtime 和 dl_period 是保留参数。
 
-(b) If the task wakes up before the inactive timer fires, the task re-enters the ActiveContending state and the \"inactive timer\" is canceled. In addition, if the task wakes up on a different runqueue, then the task\'s utilization must be removed from the previous runqueue\'s active utilization and must be added to the new runqueue\'s active utilization. In order to avoid races between a task waking up on a runqueue while the \"inactive timer\" is running on a different CPU, the \"dl_non_contending\" flag is used to indicate that a task is not on a runqueue but is active (so, the flag is set when the task blocks and is cleared when the \"inactive timer\" fires or when the task wakes up).
+(b) If the task wakes up before the inactive timer fires, the task re-enters the ActiveContending state and the "inactive timer" is canceled. In addition, if the task wakes up on a different runqueue, then the task\'s utilization must be removed from the previous runqueue\'s active utilization and must be added to the new runqueue\'s active utilization. In order to avoid races between a task waking up on a runqueue while the "inactive timer" is running on a different CPU, the "dl_non_contending" flag is used to indicate that a task is not on a runqueue but is active (so, the flag is set when the task blocks and is cleared when the "inactive timer" fires or when the task wakes up).
 
 > (b) 如果任务在非活动计时器触发之前唤醒，则任务将重新进入 ActiveContending 状态，并且“非活动计时器”将被取消。此外，如果任务在另一个运行队列上唤醒，则必须从以前运行队列的活动利用率中删除任务的利用率，并将其添加到新运行队列的活跃利用率中。为了避免当“非活动计时器”在不同的 CPU 上运行时，在运行队列上唤醒的任务之间发生竞争，“dl_non_contending”标志用于指示任务不在运行队列中而是处于活动状态(因此，当任务阻塞时会设置该标志，当“非活跃计时器”启动或任务唤醒时会清除该标志)。
 
-(c) When the \"inactive timer\" fires, the task enters the Inactive state and its utilization is removed from the runqueue\'s active utilization.
+(c) When the "inactive timer" fires, the task enters the Inactive state and its utilization is removed from the runqueue\'s active utilization.
 
 > (c) 当“非活动计时器”启动时，任务将进入非活动状态，其利用率将从运行队列的活动利用率中删除。
 
@@ -186,13 +183,13 @@ For each runqueue, the algorithm GRUB keeps track of two different bandwidths:
 
 > -活动带宽(running_bw)：这是所有处于活动状态的任务(即 ActiveContending 或 ActiveNonContending)的带宽之和；
 
-- Total bandwidth (this_bw): this is the sum of all tasks \"belonging\" to the runqueue, including the tasks in Inactive state.
+- Total bandwidth (this_bw): this is the sum of all tasks "belonging" to the runqueue, including the tasks in Inactive state.
 
-> -总带宽(this_bw)：这是属于运行队列的所有任务的总和，包括处于非活动状态的任务。
+> - 总带宽(this_bw)：这是属于运行队列的所有任务的总和，包括处于非活动状态的任务。
 
 - Maximum usable bandwidth (max_bw): This is the maximum bandwidth usable by deadline tasks and is currently set to the RT capacity.
 
-> -最大可用带宽(max_bw)：这是截止日期任务可用的最大带宽，当前设置为 RT 容量。
+> - 最大可用带宽(max_bw)：这是截止日期任务可用的最大带宽，当前设置为 RT 容量。
 
 The algorithm reclaims the bandwidth of the tasks in Inactive state. It does so by decrementing the runtime of the executing task Ti at a pace equal to
 
@@ -270,9 +267,9 @@ Task T1 wakes up. It enters the ActiveContending state again, and the running_bw
 
 ## 2.3 Energy-aware scheduling
 
-When cpufreq\'s schedutil governor is selected, SCHED_DEADLINE implements the GRUB-PA \[19\] algorithm, reducing the CPU operating frequency to the minimum value that still allows to meet the deadlines. This behavior is currently implemented only for ARM architectures.
+When cpufreq\'s schedutil governor is selected, SCHED_DEADLINE implements the GRUB-PA [19] algorithm, reducing the CPU operating frequency to the minimum value that still allows to meet the deadlines. This behavior is currently implemented only for ARM architectures.
 
-> 当选择 cpufreq\的 schedutil 调控器时，SCHED_DEADLINE 实现 GRUB-PA\[19\]算法，将 CPU 工作频率降低到最小值，仍然可以满足截止日期。此行为目前仅针对 ARM 体系结构实现。
+> 当选择 cpufreq\的 schedutil 调控器时，SCHED_DEADLINE 实现 GRUB-PA[19]算法，将 CPU 工作频率降低到最小值，仍然可以满足截止日期。此行为目前仅针对 ARM 体系结构实现。
 
 A particular care must be taken in case the time needed for changing frequency is of the same order of magnitude of the reservation period. In such cases, setting a fixed CPU frequency results in a lower amount of deadline misses.
 
@@ -285,10 +282,11 @@ A particular care must be taken in case the time needed for changing frequency i
 Warning
 :::
 
-This section contains a (not-thorough) summary on classical deadline scheduling theory, and how it applies to SCHED_DEADLINE. The reader can \"safely\" skip to Section 4 if only interested in seeing how the scheduling policy can be used. Anyway, we strongly recommend to come back here and continue reading (once the urge for testing is satisfied :P) to be sure of fully understanding all technical details.
+This section contains a (not-thorough) summary on classical deadline scheduling theory, and how it applies to SCHED_DEADLINE. The reader can "safely" skip to Section 4 if only interested in seeing how the scheduling policy can be used. Anyway, we strongly recommend to come back here and continue reading (once the urge for testing is satisfied :P) to be sure of fully understanding all technical details.
 
-> 本节包含对经典截止日期调度理论的(不全面)总结，以及它如何应用于 SCHED_deadline。如果读者只想了解如何使用调度策略，则可以“安全地”跳到第 4 节。无论如何，我们强烈建议回到这里继续阅读(一旦测试的欲望得到满足：P)，以确保完全理解所有技术细节。
-> :::
+> 本节包含对经典截止日期调度理论的(不全面)总结，以及它如何应用于 SCHED_DEADLINE。如果读者只想了解如何使用调度策略，则可以“安全地”跳到第 4 节。无论如何，我们强烈建议回到这里继续阅读(一旦测试的欲望得到满足：P)，以确保完全理解所有技术细节。
+
+:::
 
 There are no limitations on what kind of task can exploit this new scheduling discipline, even if it must be said that it is particularly suited for periodic or sporadic real-time tasks that need guarantees on their timing behavior, e.g., multimedia, streaming, control applications, etc.
 
@@ -296,9 +294,9 @@ There are no limitations on what kind of task can exploit this new scheduling di
 
 ## 3.1 Definitions
 
-A typical real-time task is composed of a repetition of computation phases (task instances, or jobs) which are activated on a periodic or sporadic fashion. Each job J_j (where J_j is the j\^th job of the task) is characterized by an arrival time r_j (the time when the job starts), an amount of computation time c_j needed to finish the job, and a job absolute deadline d_j, which is the time within which the job should be finished. The maximum execution time max{c_j} is called \"Worst Case Execution Time\" (WCET) for the task. A real-time task can be periodic with period P if [r](){j+1} = r_j + P, or sporadic with minimum inter-arrival time P is [r](){j+1} \>= r_j + P. Finally, d_j = r_j + D, where D is the task\'s relative deadline. Summing up, a real-time task can be described as
+A typical real-time task is composed of a repetition of computation phases (task instances, or jobs) which are activated on a periodic or sporadic fashion. Each job J_j (where J_j is the j\^th job of the task) is characterized by an arrival time r_j (the time when the job starts), an amount of computation time c_j needed to finish the job, and a job absolute deadline d_j, which is the time within which the job should be finished. The maximum execution time max{c_j} is called "Worst Case Execution Time" (WCET) for the task. A real-time task can be periodic with period P if [r](){j+1} = r_j + P, or sporadic with minimum inter-arrival time P is [r](){j+1} \>= r_j + P. Finally, d_j = r_j + D, where D is the task\'s relative deadline. Summing up, a real-time task can be described as
 
-> 典型的实时任务由重复的计算阶段(任务实例或作业)组成，这些阶段以周期性或偶发的方式激活。每个作业 J_J(其中 J_J 是任务的第 J 个作业)的特征在于到达时间 r_J(作业开始的时间)、完成作业所需的计算时间 c_J 和作业绝对截止日期 d_J，后者是作业应该完成的时间。最大执行时间 max｛c_j｝被称为任务的“最坏情况执行时间”(WCET)。如果[r]()｛j+1｝=r_j+P，则实时任务可以是周期性的，周期为 P，或者是具有最小到达间时间 P 的偶发任务。综上所述，实时任务可以描述为
+> 典型的实时任务由重复的计算阶段(任务实例或作业)组成，这些阶段以周期性或偶发的方式激活。每个作业 J_J(其中 J_J 是任务的第 J 个作业)的特征在于到达时间 r_J(作业开始的时间)、完成作业所需的计算时间 c_J 和作业绝对截止日期 d_J，后者是作业应该完成的时间。最大执行时间 max{c_j}被称为任务的“最坏情况执行时间”(WCET)。如果[r](){j+1}=r_j+P，则实时任务可以是周期性的，周期为 P，或者是具有最小到达间时间 P 的偶发任务。综上所述，实时任务可以描述为
 
 ```
     Task = (WCET, D, P)
@@ -308,17 +306,17 @@ The utilization of a real-time task is defined as the ratio between its WCET and
 
 > 实时任务的利用率被定义为其 WCET 与其周期(或最小到达时间)之间的比率，并表示执行任务所需的 CPU 时间的分数。
 
-If the total utilization U=sum(WCET_i/P_i) is larger than M (with M equal to the number of CPUs), then the scheduler is unable to respect all the deadlines. Note that total utilization is defined as the sum of the utilizations WCET_i/P_i over all the real-time tasks in the system. When considering multiple real-time tasks, the parameters of the i-th task are indicated with the \"\_i\" suffix. Moreover, if the total utilization is larger than M, then we risk starving non- real-time tasks by real-time tasks. If, instead, the total utilization is smaller than M, then non real-time tasks will not be starved and the system might be able to respect all the deadlines. As a matter of fact, in this case it is possible to provide an upper bound for tardiness (defined as the maximum between 0 and the difference between the finishing time of a job and its absolute deadline). More precisely, it can be proven that using a global EDF scheduler the maximum tardiness of each task is smaller or equal than
+If the total utilization U=sum(WCET_i/P_i) is larger than M (with M equal to the number of CPUs), then the scheduler is unable to respect all the deadlines. Note that total utilization is defined as the sum of the utilizations WCET_i/P_i over all the real-time tasks in the system. When considering multiple real-time tasks, the parameters of the i-th task are indicated with the "\_i" suffix. Moreover, if the total utilization is larger than M, then we risk starving non- real-time tasks by real-time tasks. If, instead, the total utilization is smaller than M, then non real-time tasks will not be starved and the system might be able to respect all the deadlines. As a matter of fact, in this case it is possible to provide an upper bound for tardiness (defined as the maximum between 0 and the difference between the finishing time of a job and its absolute deadline). More precisely, it can be proven that using a global EDF scheduler the maximum tardiness of each task is smaller or equal than
 
-> 如果总利用率 U ＝ sum(WCET_i/P_i)大于 M(其中 M 等于 CPU 的数量)，则调度器不能遵守所有截止日期。注意，总利用率被定义为系统中所有实时任务的利用率 WCET_i/P_i 的总和。当考虑多个实时任务时，第 i 个任务的参数用\“\_i\”后缀表示。此外，如果总利用率大于 M，那么我们就有可能将非实时任务饿死为实时任务。相反，如果总利用率小于 M，那么非实时任务将不会匮乏，系统可能能够遵守所有截止日期。事实上，在这种情况下，可以提供延迟的上限(定义为 0 和作业完成时间与其绝对截止日期之差之间的最大值)。更准确地说，可以证明使用全局 EDF 调度器，每个任务的最大延迟小于或等于
+> 如果总利用率 `U=sum(WCET_i/P_i)` 大于 M(其中 M 等于 CPU 的数量)，则调度器不能遵守所有截止日期。注意，总利用率被定义为系统中所有实时任务的利用率 WCET_i/P_i 的总和。当考虑多个实时任务时，第 i 个任务的参数用\“\_i\”后缀表示。此外，如果总利用率大于 M，那么我们就有可能将非实时任务饿死为实时任务。相反，如果总利用率小于 M，那么非实时任务将不会匮乏，系统可能能够遵守所有截止日期。事实上，在这种情况下，可以提供延迟的上限(定义为 0 和作业完成时间与其绝对截止日期之差之间的最大值)。更准确地说，可以证明使用全局 EDF 调度器，每个任务的最大延迟小于或等于
 
 ```
     ((M − 1) · WCET_max − WCET_min)/(M − (M − 2) · U_max) + WCET_max
 ```
 
-where WCET_max = max{WCET_i} is the maximum WCET, WCET_min=min{WCET_i} is the minimum WCET, and U_max = max{WCET_i/P_i} is the maximum utilization\[12\].
+where WCET_max = max{WCET_i} is the maximum WCET, WCET_min=min{WCET_i} is the minimum WCET, and U_max = max{WCET_i/P_i} is the maximum utilization[12].
 
-> 其中 WCET_max=max{WCET_i}是最大 WCET，WCET_min=min{WCET_id}是最小 WCET，U_max=max{WCET \_i/P_i}是最大利用率\[12\]。
+> 其中 WCET_max=max{WCET_i}是最大 WCET，WCET_min=min{WCET_id}是最小 WCET，U_max=max{WCET \_i/P_i}是最大利用率[12]。
 
 ## 3.2 Schedulability Analysis for Uniprocessor Systems
 
@@ -338,7 +336,7 @@ It is important to notice that this condition is only sufficient, and not necess
     50 / min{50,100} + 10 / min{100, 100} = 50 / 50 + 10 / 100 = 1.1
 ```
 
-Of course it is possible to test the exact schedulability of tasks with D_i != P_i (checking a condition that is both sufficient and necessary), but this cannot be done by comparing the total utilization or density with a constant. Instead, the so called \"processor demand\" approach can be used, computing the total amount of CPU time h(t) needed by all the tasks to respect all of their deadlines in a time interval of size t, and comparing such a time with the interval size t. If h(t) is smaller than t (that is, the amount of time needed by the tasks in a time interval of size t is smaller than the size of the interval) for all the possible values of t, then EDF is able to schedule the tasks respecting all of their deadlines. Since performing this check for all possible values of t is impossible, it has been proven\[4,5,6\] that it is sufficient to perform the test for values of t between 0 and a maximum value L. The cited papers contain all of the mathematical details and explain how to compute h(t) and L. In any case, this kind of analysis is too complex as well as too time-consuming to be performed on-line. Hence, as explained in Section 4 Linux uses an admission test based on the tasks\' utilizations.
+Of course it is possible to test the exact schedulability of tasks with D_i != P_i (checking a condition that is both sufficient and necessary), but this cannot be done by comparing the total utilization or density with a constant. Instead, the so called "processor demand" approach can be used, computing the total amount of CPU time h(t) needed by all the tasks to respect all of their deadlines in a time interval of size t, and comparing such a time with the interval size t. If h(t) is smaller than t (that is, the amount of time needed by the tasks in a time interval of size t is smaller than the size of the interval) for all the possible values of t, then EDF is able to schedule the tasks respecting all of their deadlines. Since performing this check for all possible values of t is impossible, it has been proven[4,5,6] that it is sufficient to perform the test for values of t between 0 and a maximum value L. The cited papers contain all of the mathematical details and explain how to compute h(t) and L. In any case, this kind of analysis is too complex as well as too time-consuming to be performed on-line. Hence, as explained in Section 4 Linux uses an admission test based on the tasks\' utilizations.
 
 > 当然，使用 D_i！=可以测试任务的精确可调度性 P_i(检查一个既充分又必要的条件)，但这不能通过将总利用率或密度与常数进行比较来实现。相反，可以使用所谓的“处理器需求”方法，计算所有任务在大小为 t 的时间间隔内遵守所有截止日期所需的 CPU 时间总量 h(t)，并将该时间与间隔大小 t 进行比较。如果对于 t 的所有可能值，h(t)小于 t(即，在大小为 t 的时间间隔中任务所需的时间量小于间隔的大小)，则 EDF 能够按照任务的所有截止日期来调度任务。由于不可能对 t 的所有可能值进行这种检查，已经证明了对 0 和最大值 L 之间的 t 值进行测试就足够了。引用的论文包含了所有的数学细节，并解释了如何计算 h(t)和 L。无论如何，这种分析太复杂，也太耗时，无法在线进行。因此，如第 4 节所述，Linux 使用基于任务利用率的准入测试。
 
@@ -348,25 +346,25 @@ On multiprocessor systems with global EDF scheduling (non partitioned systems), 
 
 > 在具有全局 EDF 调度的多处理器系统(非分区系统)上，对可调度性的充分测试不能基于利用率或密度：可以表明，即使利用率略大于 1 的 D_i=P_i 任务集也可以错过截止日期，而与 CPU 数量无关。
 
-Consider a set {Task_1,\...[Task](){M+1}} of M+1 tasks on a system with M CPUs, with the first task Task_1=(P,P,P) having period, relative deadline and WCET equal to P. The remaining M tasks Task_i=(e,P-1,P-1) have an arbitrarily small worst case execution time (indicated as \"e\" here) and a period smaller than the one of the first task. Hence, if all the tasks activate at the same time t, global EDF schedules these M tasks first (because their absolute deadlines are equal to t + P - 1, hence they are smaller than the absolute deadline of Task_1, which is t + P). As a result, Task_1 can be scheduled only at time t + e, and will finish at time t + e + P, after its absolute deadline. The total utilization of the task set is U = M · e / (P - 1) + P / P = M · e / (P - 1) + 1, and for small values of e this can become very close to 1. This is known as \"Dhall\'s effect\"\[7\]. Note: the example in the original paper by Dhall has been slightly simplified here (for example, Dhall more correctly computed [lim](){e-\>0}U).
+Consider a set {Task_1,\...[Task](){M+1}} of M+1 tasks on a system with M CPUs, with the first task Task_1=(P,P,P) having period, relative deadline and WCET equal to P. The remaining M tasks Task_i=(e,P-1,P-1) have an arbitrarily small worst case execution time (indicated as "e" here) and a period smaller than the one of the first task. Hence, if all the tasks activate at the same time t, global EDF schedules these M tasks first (because their absolute deadlines are equal to t + P - 1, hence they are smaller than the absolute deadline of Task_1, which is t + P). As a result, Task_1 can be scheduled only at time t + e, and will finish at time t + e + P, after its absolute deadline. The total utilization of the task set is U = M · e / (P - 1) + P / P = M · e / (P - 1) + 1, and for small values of e this can become very close to 1. This is known as "Dhall\'s effect"[7]. Note: the example in the original paper by Dhall has been slightly simplified here (for example, Dhall more correctly computed [lim](){e-\>0}U).
 
-> 考虑在具有 M 个 CPU 的系统上的 M+1 个任务的集合｛Task_1，\…[Task]()｛M+1｝｝，其中第一个任务 Task_1=(P，P)具有周期、相对截止日期和等于 P 的 WCET。剩余的 M 个任务 Task_i=(e，P-1，P-1)具有任意小的最坏情况执行时间(此处指示为\“e”)和小于第一个任务的周期。因此，如果所有任务都在同一时间 t 激活，全局 EDF 首先调度这 M 个任务(因为它们的绝对截止日期等于 t+P-1，因此它们小于 Task_1 的绝对截止时间，即 t+P)。因此，Task_1 只能在时间 t+e 进行调度，并且将在其绝对截止日期之后的时间 t+e+P 完成。任务集的总利用率为 U=M·e/(P-1)+P=M·e/(P-1)+1，对于较小的 e 值，这可能变得非常接近 1。这被称为“达尔效应”。注意：Dhall 在原始论文中的例子在这里被稍微简化了(例如，Dhall 更正确地计算了[lim]()｛e-\＞ 0｝U)。
+> 考虑在具有 M 个 CPU 的系统上的 M+1 个任务的集合{Task_1，\…[Task](){M+1}}，其中第一个任务 Task_1=(P，P)具有周期、相对截止日期和等于 P 的 WCET。剩余的 M 个任务 Task_i=(e，P-1，P-1)具有任意小的最坏情况执行时间(此处指示为\“e”)和小于第一个任务的周期。因此，如果所有任务都在同一时间 t 激活，全局 EDF 首先调度这 M 个任务(因为它们的绝对截止日期等于 t+P-1，因此它们小于 Task_1 的绝对截止时间，即 t+P)。因此，Task_1 只能在时间 t+e 进行调度，并且将在其绝对截止日期之后的时间 t+e+P 完成。任务集的总利用率为 U=M·e/(P-1)+P=M·e/(P-1)+1，对于较小的 e 值，这可能变得非常接近 1。这被称为“达尔效应”。注意：Dhall 在原始论文中的例子在这里被稍微简化了(例如，Dhall 更正确地计算了[lim](){e-\＞ 0}U)。
 
-More complex schedulability tests for global EDF have been developed in real-time literature\[8,9\], but they are not based on a simple comparison between total utilization (or density) and a fixed constant. If all tasks have D_i = P_i, a sufficient schedulability condition can be expressed in a simple way:
+More complex schedulability tests for global EDF have been developed in real-time literature[8,9], but they are not based on a simple comparison between total utilization (or density) and a fixed constant. If all tasks have D_i = P_i, a sufficient schedulability condition can be expressed in a simple way:
 
-> 实时文献\[8，9\]中已经开发了更复杂的全局 EDF 可调度性测试，但它们并不是基于总利用率(或密度)和固定常数之间的简单比较。如果所有任务都有 D_i=P_i，则一个充分的可调度性条件可以用一种简单的方式表示：
+> 实时文献[8，9]中已经开发了更复杂的全局 EDF 可调度性测试，但它们并不是基于总利用率(或密度)和固定常数之间的简单比较。如果所有任务都有 D_i=P_i，则一个充分的可调度性条件可以用一种简单的方式表示：
 
 ```
     sum(WCET_i / P_i) \<= M - (M - 1) · U_max
 ```
 
-where U_max = max{WCET_i / P_i}\[10\]. Notice that for U_max = 1, M - (M - 1) · U_max becomes M - M + 1 = 1 and this schedulability condition just confirms the Dhall\'s effect. A more complete survey of the literature about schedulability tests for multi-processor real-time scheduling can be found in \[11\].
+where U_max = max{WCET_i / P_i}[10]. Notice that for U_max = 1, M - (M - 1) · U_max becomes M - M + 1 = 1 and this schedulability condition just confirms the Dhall\'s effect. A more complete survey of the literature about schedulability tests for multi-processor real-time scheduling can be found in [11].
 
-> 其中 U\_ max ＝ max｛WCET_i/P_i｝\[10\]。注意，对于 U_max=1，M-(M-1)·U_max 变为 M-M+1=1，这个可调度性条件正好证实了 Dhall\的效果。关于多处理器实时调度的可调度性测试的文献，可以在\[11\]中找到更完整的调查。
+> 其中 U\_ max ＝ max{WCET_i/P_i}[10]。注意，对于 U_max=1，M-(M-1)·U_max 变为 M-M+1=1，这个可调度性条件正好证实了 Dhall\的效果。关于多处理器实时调度的可调度性测试的文献，可以在[11]中找到更完整的调查。
 
-As seen, enforcing that the total utilization is smaller than M does not guarantee that global EDF schedules the tasks without missing any deadline (in other words, global EDF is not an optimal scheduling algorithm). However, a total utilization smaller than M is enough to guarantee that non real-time tasks are not starved and that the tardiness of real-time tasks has an upper bound\[12\] (as previously noted). Different bounds on the maximum tardiness experienced by real-time tasks have been developed in various papers\[13,14\], but the theoretical result that is important for SCHED_DEADLINE is that if the total utilization is smaller or equal than M then the response times of the tasks are limited.
+As seen, enforcing that the total utilization is smaller than M does not guarantee that global EDF schedules the tasks without missing any deadline (in other words, global EDF is not an optimal scheduling algorithm). However, a total utilization smaller than M is enough to guarantee that non real-time tasks are not starved and that the tardiness of real-time tasks has an upper bound[12] (as previously noted). Different bounds on the maximum tardiness experienced by real-time tasks have been developed in various papers[13,14], but the theoretical result that is important for SCHED_DEADLINE is that if the total utilization is smaller or equal than M then the response times of the tasks are limited.
 
-> 如图所示，强制总利用率小于 M 并不能保证全局 EDF 在不错过任何截止日期的情况下调度任务(换句话说，全局 EDF 不是最优调度算法)。然而，小于 M 的总利用率足以保证非实时任务不会匮乏，并且实时任务的延迟有一个上限\[12\](如前所述)。各种论文[13，14\]对实时任务所经历的最大延迟提出了不同的界限，但对 SCHED_DEADLINE 来说重要的理论结果是，如果总利用率小于或等于 M，则任务的响应时间是有限的。
+> 如图所示，强制总利用率小于 M 并不能保证全局 EDF 在不错过任何截止日期的情况下调度任务(换句话说，全局 EDF 不是最优调度算法)。然而，小于 M 的总利用率足以保证非实时任务不会匮乏，并且实时任务的延迟有一个上限[12](如前所述)。各种论文[13，14]对实时任务所经历的最大延迟提出了不同的界限，但对 SCHED_DEADLINE 来说重要的理论结果是，如果总利用率小于或等于 M，则任务的响应时间是有限的。
 
 ## 3.4 Relationship with SCHED_DEADLINE Parameters
 
@@ -380,9 +378,9 @@ Finally, it is important to understand the relationship between the SCHED_DEADLI
     - period \<= P
 ```
 
-IOW, if runtime \>= WCET and if period is \<= P, then the scheduling deadlines and the absolute deadlines (d_j) coincide, so a proper admission control allows to respect the jobs\' absolute deadlines for this task (this is what is called \"hard schedulability property\" and is an extension of Lemma 1 of \[2\]). Notice that if runtime \deadline the admission control will surely reject this task, as it is not possible to respect its temporal constraints.
+IOW, if runtime \>= WCET and if period is \<= P, then the scheduling deadlines and the absolute deadlines (d_j) coincide, so a proper admission control allows to respect the jobs\' absolute deadlines for this task (this is what is called "hard schedulability property" and is an extension of Lemma 1 of [2]). Notice that if runtime \deadline the admission control will surely reject this task, as it is not possible to respect its temporal constraints.
 
-> IOW，如果运行时\>=WCET，并且周期为\<=P，则调度截止日期和绝对截止日期(d_j)重合，因此适当的准入控制允许尊重作业的绝对截止日期用于该任务(这就是所谓的“硬可调度性属性”，是\[2\]的引理 1 的扩展)。请注意，如果运行时\截止日期，准入控制肯定会拒绝此任务，因为它不可能遵守其时间限制。
+> IOW，如果运行时\>=WCET，并且周期为\<=P，则调度截止日期和绝对截止日期(d_j)重合，因此适当的准入控制允许尊重作业的绝对截止日期用于该任务(这就是所谓的“硬可调度性属性”，是[2]的引理 1 的扩展)。请注意，如果运行时\截止日期，准入控制肯定会拒绝此任务，因为它不可能遵守其时间限制。
 
 References:
 
@@ -426,11 +424,11 @@ References:
 
 # 4. Bandwidth management
 
-As previously mentioned, in order for -deadline scheduling to be effective and useful (that is, to be able to provide \"runtime\" time units within \"deadline\"), it is important to have some method to keep the allocation of the available fractions of CPU time to the various tasks under control. This is usually called \"admission control\" and if it is not performed, then no guarantee can be given on the actual scheduling of the -deadline tasks.
+As previously mentioned, in order for -deadline scheduling to be effective and useful (that is, to be able to provide "runtime" time units within "deadline"), it is important to have some method to keep the allocation of the available fractions of CPU time to the various tasks under control. This is usually called "admission control" and if it is not performed, then no guarantee can be given on the actual scheduling of the -deadline tasks.
 
 > 如前所述，为了有效和有用的截止日期调度(即能够在“截止日期”内提供“运行时”时间单位)，重要的是要有一些方法来控制 CPU 时间的可用部分分配给各种任务。这通常被称为“准入控制”，如果不执行，则无法保证截止日期任务的实际调度。
 
-As already stated in Section 3, a necessary condition to be respected to correctly schedule a set of real-time tasks is that the total utilization is smaller than M. When talking about -deadline tasks, this requires that the sum of the ratio between runtime and period for all tasks is smaller than M. Notice that the ratio runtime/period is equivalent to the utilization of a \"traditional\" real-time task, and is also often referred to as \"bandwidth\". The interface used to control the CPU bandwidth that can be allocated to -deadline tasks is similar to the one already used for -rt tasks with real-time group scheduling (a.k.a. RT-throttling - see Documentation/scheduler/sched-rt-group.rst), and is based on readable/ writable control files located in procfs (for system wide settings). Notice that per-group settings (controlled through cgroupfs) are still not defined for -deadline tasks, because more discussion is needed in order to figure out how we want to manage SCHED_DEADLINE bandwidth at the task group level.
+As already stated in Section 3, a necessary condition to be respected to correctly schedule a set of real-time tasks is that the total utilization is smaller than M. When talking about -deadline tasks, this requires that the sum of the ratio between runtime and period for all tasks is smaller than M. Notice that the ratio runtime/period is equivalent to the utilization of a "traditional" real-time task, and is also often referred to as "bandwidth". The interface used to control the CPU bandwidth that can be allocated to -deadline tasks is similar to the one already used for -rt tasks with real-time group scheduling (a.k.a. RT-throttling - see Documentation/scheduler/sched-rt-group.rst), and is based on readable/ writable control files located in procfs (for system wide settings). Notice that per-group settings (controlled through cgroupfs) are still not defined for -deadline tasks, because more discussion is needed in order to figure out how we want to manage SCHED_DEADLINE bandwidth at the task group level.
 
 > 如第 3 节所述，正确调度一组实时任务需要满足的一个必要条件是总利用率小于 M。当谈到截止日期任务时，这要求所有任务的运行时间和周期之和小于 M。请注意，运行时/周期的比率相当于“传统”实时任务的利用率，也经常被称为“带宽”。用于控制可分配给-dermine 任务的 CPU 带宽的接口类似于已用于实时组调度的-rt 任务的接口(也称为 rt 节流-请参阅文档/schedur/sched-rt group.rst)，并且基于 procfs 中的可读/写控制文件(用于系统范围的设置)。请注意，每个组的设置(通过 cgroupfs 控制)仍然没有为-dialdline 任务定义，因为需要进行更多的讨论，以了解如何在任务组级别管理 SCHED_deadline 带宽。
 
@@ -484,7 +482,7 @@ For debugging purposes, the leftover runtime and absolute deadline of a SCHED_DE
 
 ## 4.3 Default behavior
 
-The default value for SCHED_DEADLINE bandwidth is to have rt_runtime equal to 950000. With rt_period equal to 1000000, by default, it means that -deadline tasks can use at most 95%, multiplied by the number of CPUs that compose the root_domain, for each root_domain. This means that non -deadline tasks will receive at least 5% of the CPU time, and that -deadline tasks will receive their runtime with a guaranteed worst-case delay respect to the \"deadline\" parameter. If \"deadline\" = \"period\" and the cpuset mechanism is used to implement partitioned scheduling (see Section 5), then this simple setting of the bandwidth management is able to deterministically guarantee that -deadline tasks will receive their runtime in a period.
+The default value for SCHED_DEADLINE bandwidth is to have rt_runtime equal to 950000. With rt_period equal to 1000000, by default, it means that -deadline tasks can use at most 95%, multiplied by the number of CPUs that compose the root_domain, for each root_domain. This means that non -deadline tasks will receive at least 5% of the CPU time, and that -deadline tasks will receive their runtime with a guaranteed worst-case delay respect to the "deadline" parameter. If "deadline" = "period" and the cpuset mechanism is used to implement partitioned scheduling (see Section 5), then this simple setting of the bandwidth management is able to deterministically guarantee that -deadline tasks will receive their runtime in a period.
 
 > SCHED_DEADLINE 带宽的默认值是 rt_runtime 等于 950000。默认情况下，rt_period 等于 1000000，这意味着-dermine 任务最多可以使用 95%，乘以组成 root_domain 的 CPU 数量，用于每个 root_domain。这意味着非截止日期任务将获得至少 5%的 CPU 时间，而截止日期任务的运行时间将保证在最坏情况下相对于“截止日期”参数的延迟。如果“deadline”=“period”，并且使用 cpuset 机制来实现分区调度(请参阅第 5 节)，那么这种简单的带宽管理设置能够决定性地保证-dateline 任务将在一段时间内接收其运行时。
 
@@ -542,13 +540,13 @@ Still missing:
 
 - (c)group based bandwidth management, and maybe scheduling;
 
-- access control for non-root users (and related security concerns to address), which is the best way to allow unprivileged use of the mechanisms and how to prevent non-root users \"cheat\" the system?
+- access control for non-root users (and related security concerns to address), which is the best way to allow unprivileged use of the mechanisms and how to prevent non-root users "cheat" the system?
 
 > -非 root 用户的访问控制(以及需要解决的相关安全问题)，哪种方式是允许非特权使用该机制的最佳方式，以及如何防止非 root 用户“欺骗”系统？
 
-As already discussed, we are planning also to merge this work with the EDF throttling patches \[<https://lore.kernel.org/r/cover.1266931410.git.fabio@helm.retis>\] but we still are in the preliminary phases of the merge and we really seek feedback that would help us decide on the direction it should take.
+As already discussed, we are planning also to merge this work with the EDF throttling patches [<https://lore.kernel.org/r/cover.1266931410.git.fabio@helm.retis>] but we still are in the preliminary phases of the merge and we really seek feedback that would help us decide on the direction it should take.
 
-> 如前所述，我们还计划将这项工作与 EDF 节流补丁合并\[<https://lore.kernel.org/r/cover.1266931410.git.fabio@helm.retis>\]，但我们仍处于合并的初步阶段，我们确实在寻求反馈，以帮助我们决定合并的方向。
+> 如前所述，我们还计划将这项工作与 EDF 节流补丁合并[<https://lore.kernel.org/r/cover.1266931410.git.fabio@helm.retis>]，但我们仍处于合并的初步阶段，我们确实在寻求反馈，以帮助我们决定合并的方向。
 
 # Appendix A. Test suite
 
@@ -582,7 +580,7 @@ More interestingly, configurations can be described with a json file that can be
 
 The parameters that can be specified with the second method are a superset of the command line options. Please refer to rt-app documentation for more details ([\<rt-app-sources\>/doc/\*.json]{.title-ref}).
 
-> 可以使用第二种方法指定的参数是命令行选项的超集。有关更多详细信息，请参阅 rt 应用程序文档([\<rt 应用程序源\>/doc/\*.json]｛.title-ref｝)。
+> 可以使用第二种方法指定的参数是命令行选项的超集。有关更多详细信息，请参阅 rt 应用程序文档([\<rt 应用程序源\>/doc/\*.json]{.title-ref})。
 
 The second testing application is a modification of schedtool, called schedtool-dl, which can be used to setup SCHED_DEADLINE parameters for a certain pid/application. schedtool-dl is available at: <https://github.com/scheduler-tools/schedtool-dl.git>.
 
