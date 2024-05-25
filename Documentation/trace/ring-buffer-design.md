@@ -6,15 +6,15 @@ Copyright 2009 Red Hat Inc.
 
 Author
 
-:   Steven Rostedt \<<srostedt@redhat.com>\>
+: Steven Rostedt \<<srostedt@redhat.com>\>
 
 License
 
-:   The GNU Free Documentation License, Version 1.2 (dual licensed under the GPL v2)
+: The GNU Free Documentation License, Version 1.2 (dual licensed under the GPL v2)
 
 Reviewers
 
-:   Mathieu Desnoyers, Huang Ying, Hidetoshi Seto, and Frederic Weisbecker.
+: Mathieu Desnoyers, Huang Ying, Hidetoshi Seto, and Frederic Weisbecker.
 
 Written for: 2.6.31
 
@@ -22,57 +22,59 @@ Written for: 2.6.31
 
 tail
 
-:   -   where new writes happen in the ring buffer.
+: - where new writes happen in the ring buffer.
 
 head
 
-:   -   where new reads happen in the ring buffer.
+: - where new reads happen in the ring buffer.
 
 producer
 
-:   -   the task that writes into the ring buffer (same as writer)
+: - the task that writes into the ring buffer (same as writer)
 
 writer
 
-:   -   same as producer
+: - same as producer
 
 consumer
 
-:   -   the task that reads from the buffer (same as reader)
+: - the task that reads from the buffer (same as reader)
 
 reader
 
-:   -   same as consumer.
+: - same as consumer.
 
 reader_page
 
-:   -   A page outside the ring buffer used solely (for the most part) by the reader.
+: - A page outside the ring buffer used solely (for the most part) by the reader.
 
 head_page
 
-:   -   a pointer to the page that the reader will use next
+: - a pointer to the page that the reader will use next
 
 tail_page
 
-:   -   a pointer to the page that will be written to next
+: - a pointer to the page that will be written to next
 
 commit_page
 
-:   -   a pointer to the page with the last finished non-nested write.
+: - a pointer to the page with the last finished non-nested write.
 
 cmpxchg
 
-:   -   hardware-assisted atomic transaction that performs the following:
+: - hardware-assisted atomic transaction that performs the following:
 
-            A = B if previous A == C
+```
+        A = B if previous A == C
 
-            R = cmpxchg(A, C, B) is saying that we replace A with B if and only
-            if current A is equal to C, and we put the old (current)
-            A into R
+        R = cmpxchg(A, C, B) is saying that we replace A with B if and only
+        if current A is equal to C, and we put the old (current)
+        A into R
 
-            R gets the previous A regardless if A is updated with B or not.
+        R gets the previous A regardless if A is updated with B or not.
 
-        To see if the update was successful a compare of `R == C` may be used.
+    To see if the update was successful a compare of `R == C` may be used.
+```
 
 # The Generic Ring Buffer
 
@@ -84,12 +86,14 @@ Overwrite mode is where if the producer were to fill up the buffer before the co
 
 No two writers can write at the same time (on the same per-cpu buffer), but a writer may interrupt another writer, but it must finish writing before the previous writer may continue. This is very important to the algorithm. The writers act like a \"stack\". The way interrupts works enforces this behavior:
 
-    writer1 start
-       <preempted> writer2 start
-           <preempted> writer3 start
-                       writer3 finishes
-                   writer2 finishes
-    writer1 finishes
+```
+writer1 start
+   <preempted> writer2 start
+       <preempted> writer3 start
+                   writer3 finishes
+               writer2 finishes
+writer1 finishes
+```
 
 This is very much like a writer being preempted by an interrupt and the interrupt doing a write as well.
 
@@ -111,74 +115,78 @@ Once the new page is given to the reader, the reader could do what it wants with
 
 A sample of how the reader page is swapped: Note this does not show the head page in the buffer, it is for demonstrating a swap only.
 
-    +------+
-    |reader|          RING BUFFER
-    |page  |
-    +------+
-                    +---+   +---+   +---+
-                    |   |-->|   |-->|   |
-                    |   |<--|   |<--|   |
-                    +---+   +---+   +---+
-                     ^ |             ^ |
-                     | +-------------+ |
-                     +-----------------+
+```
++------+
+|reader|          RING BUFFER
+|page  |
++------+
+                +---+   +---+   +---+
+                |   |-->|   |-->|   |
+                |   |<--|   |<--|   |
+                +---+   +---+   +---+
+                 ^ |             ^ |
+                 | +-------------+ |
+                 +-----------------+
 
 
-    +------+
-    |reader|          RING BUFFER
-    |page  |-------------------+
-    +------+                   v
-      |             +---+   +---+   +---+
-      |             |   |-->|   |-->|   |
-      |             |   |<--|   |<--|   |<-+
-      |             +---+   +---+   +---+  |
-      |              ^ |             ^ |   |
-      |              | +-------------+ |   |
-      |              +-----------------+   |
-      +------------------------------------+
++------+
+|reader|          RING BUFFER
+|page  |-------------------+
++------+                   v
+  |             +---+   +---+   +---+
+  |             |   |-->|   |-->|   |
+  |             |   |<--|   |<--|   |<-+
+  |             +---+   +---+   +---+  |
+  |              ^ |             ^ |   |
+  |              | +-------------+ |   |
+  |              +-----------------+   |
+  +------------------------------------+
 
-    +------+
-    |reader|          RING BUFFER
-    |page  |-------------------+
-    +------+ <---------------+ v
-      |  ^          +---+   +---+   +---+
-      |  |          |   |-->|   |-->|   |
-      |  |          |   |   |   |<--|   |<-+
-      |  |          +---+   +---+   +---+  |
-      |  |             |             ^ |   |
-      |  |             +-------------+ |   |
-      |  +-----------------------------+   |
-      +------------------------------------+
++------+
+|reader|          RING BUFFER
+|page  |-------------------+
++------+ <---------------+ v
+  |  ^          +---+   +---+   +---+
+  |  |          |   |-->|   |-->|   |
+  |  |          |   |   |   |<--|   |<-+
+  |  |          +---+   +---+   +---+  |
+  |  |             |             ^ |   |
+  |  |             +-------------+ |   |
+  |  +-----------------------------+   |
+  +------------------------------------+
 
-    +------+
-    |buffer|          RING BUFFER
-    |page  |-------------------+
-    +------+ <---------------+ v
-      |  ^          +---+   +---+   +---+
-      |  |          |   |   |   |-->|   |
-      |  |  New     |   |   |   |<--|   |<-+
-      |  | Reader   +---+   +---+   +---+  |
-      |  |  page ----^                 |   |
-      |  |                             |   |
-      |  +-----------------------------+   |
-      +------------------------------------+
++------+
+|buffer|          RING BUFFER
+|page  |-------------------+
++------+ <---------------+ v
+  |  ^          +---+   +---+   +---+
+  |  |          |   |   |   |-->|   |
+  |  |  New     |   |   |   |<--|   |<-+
+  |  | Reader   +---+   +---+   +---+  |
+  |  |  page ----^                 |   |
+  |  |                             |   |
+  |  +-----------------------------+   |
+  +------------------------------------+
+```
 
 It is possible that the page swapped is the commit page and the tail page, if what is in the ring buffer is less than what is held in a buffer page.
 
-    reader page    commit page   tail page
-        |              |             |
-        v              |             |
-       +---+           |             |
-       |   |<----------+             |
-       |   |<------------------------+
-       |   |------+
-       +---+      |
-                  |
-                  v
-    +---+    +---+    +---+    +---+
-    <---|   |--->|   |--->|   |--->|   |--->
-    --->|   |<---|   |<---|   |<---|   |<---
-    +---+    +---+    +---+    +---+
+```
+reader page    commit page   tail page
+    |              |             |
+    v              |             |
+   +---+           |             |
+   |   |<----------+             |
+   |   |<------------------------+
+   |   |------+
+   +---+      |
+              |
+              v
++---+    +---+    +---+    +---+
+<---|   |--->|   |--->|   |--->|   |--->
+--->|   |<---|   |<---|   |<---|   |<---
++---+    +---+    +---+    +---+
+```
 
 This case is still valid for this algorithm. When the writer leaves the page, it simply goes into the ring buffer since the reader page still points to the next location in the ring buffer.
 
@@ -186,27 +194,31 @@ The main pointers:
 
 > reader page
 >
-> :   -   
+> : -
 >
->         The page used solely by the reader and is not part
+> ```
+>     The page used solely by the reader and is not part
 >
->         :   of the ring buffer (may be swapped in)
+>     :   of the ring buffer (may be swapped in)
+> ```
 >
 > head page
 >
-> :   -   
+> : -
 >
->         the next page in the ring buffer that will be swapped
+> ```
+>     the next page in the ring buffer that will be swapped
 >
->         :   with the reader page.
+>     :   with the reader page.
+> ```
 >
 > tail page
 >
-> :   -   the page where the next write will take place.
+> : - the page where the next write will take place.
 >
 > commit page
 >
-> :   -   the page that last finished a write.
+> : - the page that last finished a write.
 
 The commit page only is updated by the outermost writer in the writer stack. A writer that preempts another writer will not move the commit page.
 
@@ -216,59 +228,69 @@ Another write (or a read) may take place at anytime during this transaction. If 
 
 > Write reserve:
 >
->     Buffer page
->     +---------+
->     |written  |
->     +---------+  <--- given back to writer (current commit)
->     |reserved |
->     +---------+ <--- tail pointer
->     | empty   |
->     +---------+
+> ```
+> Buffer page
+> +---------+
+> |written  |
+> +---------+  <--- given back to writer (current commit)
+> |reserved |
+> +---------+ <--- tail pointer
+> | empty   |
+> +---------+
+> ```
 >
 > Write commit:
 >
->     Buffer page
->     +---------+
->     |written  |
->     +---------+
->     |written  |
->     +---------+  <--- next position for write (current commit)
->     | empty   |
->     +---------+
+> ```
+> Buffer page
+> +---------+
+> |written  |
+> +---------+
+> |written  |
+> +---------+  <--- next position for write (current commit)
+> | empty   |
+> +---------+
+> ```
 >
 > If a write happens after the first reserve:
 >
->     Buffer page
->     +---------+
->     |written  |
->     +---------+  <-- current commit
->     |reserved |
->     +---------+  <--- given back to second writer
->     |reserved |
->     +---------+ <--- tail pointer
+> ```
+> Buffer page
+> +---------+
+> |written  |
+> +---------+  <-- current commit
+> |reserved |
+> +---------+  <--- given back to second writer
+> |reserved |
+> +---------+ <--- tail pointer
+> ```
 >
 > After second writer commits:
 >
->     Buffer page
->     +---------+
->     |written  |
->     +---------+  <--(last full commit)
->     |reserved |
->     +---------+
->     |pending  |
->     |commit   |
->     +---------+ <--- tail pointer
+> ```
+> Buffer page
+> +---------+
+> |written  |
+> +---------+  <--(last full commit)
+> |reserved |
+> +---------+
+> |pending  |
+> |commit   |
+> +---------+ <--- tail pointer
+> ```
 >
 > When the first writer commits:
 >
->     Buffer page
->     +---------+
->     |written  |
->     +---------+
->     |written  |
->     +---------+
->     |written  |
->     +---------+  <--(last full commit and tail pointer)
+> ```
+> Buffer page
+> +---------+
+> |written  |
+> +---------+
+> |written  |
+> +---------+
+> |written  |
+> +---------+  <--(last full commit and tail pointer)
+> ```
 
 The commit pointer points to the last write location that was committed without preempting another write. When a write that preempted another write is committed, it only becomes a pending commit and will not be a full commit until all writes have been committed.
 
@@ -278,40 +300,46 @@ The tail page is always equal to or after the commit page. It may be several pag
 
 The order of pages is:
 
-    head page
-    commit page
-    tail page
+```
+head page
+commit page
+tail page
+```
 
 Possible scenario:
 
-    tail page
-    head page         commit page  |
-    |                 |        |
-    v                 v        v
-    +---+    +---+    +---+    +---+
-    <---|   |--->|   |--->|   |--->|   |--->
-    --->|   |<---|   |<---|   |<---|   |<---
-    +---+    +---+    +---+    +---+
+```
+tail page
+head page         commit page  |
+|                 |        |
+v                 v        v
++---+    +---+    +---+    +---+
+<---|   |--->|   |--->|   |--->|   |--->
+--->|   |<---|   |<---|   |<---|   |<---
++---+    +---+    +---+    +---+
+```
 
 There is a special case that the head page is after either the commit page and possibly the tail page. That is when the commit (and tail) page has been swapped with the reader page. This is because the head page is always part of the ring buffer, but the reader page is not. Whenever there has been less than a full page that has been committed inside the ring buffer, and a reader swaps out a page, it will be swapping out the commit page.
 
-    reader page    commit page   tail page
-        |              |             |
-        v              |             |
-       +---+           |             |
-       |   |<----------+             |
-       |   |<------------------------+
-       |   |------+
-       +---+      |
-                  |
-                  v
-    +---+    +---+    +---+    +---+
-    <---|   |--->|   |--->|   |--->|   |--->
-    --->|   |<---|   |<---|   |<---|   |<---
-    +---+    +---+    +---+    +---+
-                  ^
-                  |
-              head page
+```
+reader page    commit page   tail page
+    |              |             |
+    v              |             |
+   +---+           |             |
+   |   |<----------+             |
+   |   |<------------------------+
+   |   |------+
+   +---+      |
+              |
+              v
++---+    +---+    +---+    +---+
+<---|   |--->|   |--->|   |--->|   |--->
+--->|   |<---|   |<---|   |<---|   |<---
++---+    +---+    +---+    +---+
+              ^
+              |
+          head page
+```
 
 In this case, the head page will not move when the tail and commit move back into the ring buffer.
 
@@ -321,40 +349,42 @@ When the tail meets the head page, if the buffer is in overwrite mode, the head 
 
 Overwrite mode:
 
-    tail page
-       |
-       v
-    +---+    +---+    +---+    +---+
-    <---|   |--->|   |--->|   |--->|   |--->
-    --->|   |<---|   |<---|   |<---|   |<---
-    +---+    +---+    +---+    +---+
-                ^
-                |
-            head page
+```
+tail page
+   |
+   v
++---+    +---+    +---+    +---+
+<---|   |--->|   |--->|   |--->|   |--->
+--->|   |<---|   |<---|   |<---|   |<---
++---+    +---+    +---+    +---+
+            ^
+            |
+        head page
 
 
-    tail page
-       |
-       v
-    +---+    +---+    +---+    +---+
-    <---|   |--->|   |--->|   |--->|   |--->
-    --->|   |<---|   |<---|   |<---|   |<---
-    +---+    +---+    +---+    +---+
-                         ^
-                         |
-                     head page
+tail page
+   |
+   v
++---+    +---+    +---+    +---+
+<---|   |--->|   |--->|   |--->|   |--->
+--->|   |<---|   |<---|   |<---|   |<---
++---+    +---+    +---+    +---+
+                     ^
+                     |
+                 head page
 
 
-            tail page
-                |
-                v
-    +---+    +---+    +---+    +---+
-    <---|   |--->|   |--->|   |--->|   |--->
-    --->|   |<---|   |<---|   |<---|   |<---
-    +---+    +---+    +---+    +---+
-                         ^
-                         |
-                     head page
+        tail page
+            |
+            v
++---+    +---+    +---+    +---+
+<---|   |--->|   |--->|   |--->|   |--->
+--->|   |<---|   |<---|   |<---|   |<---
++---+    +---+    +---+    +---+
+                     ^
+                     |
+                 head page
+```
 
 Note, the reader page will still point to the previous head page. But when a swap takes place, it will use the most recent head page.
 
@@ -362,56 +392,64 @@ Note, the reader page will still point to the previous head page. But when a swa
 
 The main idea behind the lockless algorithm is to combine the moving of the head_page pointer with the swapping of pages with the reader. State flags are placed inside the pointer to the page. To do this, each page must be aligned in memory by 4 bytes. This will allow the 2 least significant bits of the address to be used as flags, since they will always be zero for the address. To get the address, simply mask out the flags:
 
-    MASK = ~3
+```
+MASK = ~3
 
-    address & MASK
+address & MASK
+```
 
 Two flags will be kept by these two bits:
 
 > HEADER
 >
-> :   -   the page being pointed to is a head page
+> : - the page being pointed to is a head page
 >
 > UPDATE
 >
-> :   -   
+> : -
 >
->         the page being pointed to is being updated by a writer
+> ```
+>     the page being pointed to is being updated by a writer
 >
->         :   and was or is about to be a head page.
+>     :   and was or is about to be a head page.
+> ```
 
-    reader page
-    |
-    v
-    +---+
-    |   |------+
-    +---+      |
-          |
-          v
-    +---+    +---+    +---+    +---+
-    <---|   |--->|   |-H->|   |--->|   |--->
-    --->|   |<---|   |<---|   |<---|   |<---
-    +---+    +---+    +---+    +---+
+```
+reader page
+|
+v
++---+
+|   |------+
++---+      |
+      |
+      v
++---+    +---+    +---+    +---+
+<---|   |--->|   |-H->|   |--->|   |--->
+--->|   |<---|   |<---|   |<---|   |<---
++---+    +---+    +---+    +---+
+```
 
 The above pointer \"-H-\>\" would have the HEADER flag set. That is the next page is the next page to be swapped out by the reader. This pointer means the next page is the head page.
 
 When the tail page meets the head pointer, it will use cmpxchg to change the pointer to the UPDATE state:
 
-    tail page
-       |
-       v
-    +---+    +---+    +---+    +---+
-    <---|   |--->|   |-H->|   |--->|   |--->
-    --->|   |<---|   |<---|   |<---|   |<---
-    +---+    +---+    +---+    +---+
+```
+tail page
+   |
+   v
++---+    +---+    +---+    +---+
+<---|   |--->|   |-H->|   |--->|   |--->
+--->|   |<---|   |<---|   |<---|   |<---
++---+    +---+    +---+    +---+
 
-    tail page
-       |
-       v
-    +---+    +---+    +---+    +---+
-    <---|   |--->|   |-U->|   |--->|   |--->
-    --->|   |<---|   |<---|   |<---|   |<---
-    +---+    +---+    +---+    +---+
+tail page
+   |
+   v
++---+    +---+    +---+    +---+
+<---|   |--->|   |-U->|   |--->|   |--->
+--->|   |<---|   |<---|   |<---|   |<---
++---+    +---+    +---+    +---+
+```
 
 \"-U-\>\" represents a pointer in the UPDATE state.
 
@@ -421,89 +459,99 @@ When the reader tries to swap the page with the ring buffer, it will also use cm
 
 The reader swaps the reader page as follows:
 
-    +------+
-    |reader|          RING BUFFER
-    |page  |
-    +------+
-                    +---+    +---+    +---+
-                    |   |--->|   |--->|   |
-                    |   |<---|   |<---|   |
-                    +---+    +---+    +---+
-                     ^ |               ^ |
-                     | +---------------+ |
-                     +-----H-------------+
+```
++------+
+|reader|          RING BUFFER
+|page  |
++------+
+                +---+    +---+    +---+
+                |   |--->|   |--->|   |
+                |   |<---|   |<---|   |
+                +---+    +---+    +---+
+                 ^ |               ^ |
+                 | +---------------+ |
+                 +-----H-------------+
+```
 
 The reader sets the reader page next pointer as HEADER to the page after the head page:
 
-    +------+
-    |reader|          RING BUFFER
-    |page  |-------H-----------+
-    +------+                   v
-      |             +---+    +---+    +---+
-      |             |   |--->|   |--->|   |
-      |             |   |<---|   |<---|   |<-+
-      |             +---+    +---+    +---+  |
-      |              ^ |               ^ |   |
-      |              | +---------------+ |   |
-      |              +-----H-------------+   |
-      +--------------------------------------+
+```
++------+
+|reader|          RING BUFFER
+|page  |-------H-----------+
++------+                   v
+  |             +---+    +---+    +---+
+  |             |   |--->|   |--->|   |
+  |             |   |<---|   |<---|   |<-+
+  |             +---+    +---+    +---+  |
+  |              ^ |               ^ |   |
+  |              | +---------------+ |   |
+  |              +-----H-------------+   |
+  +--------------------------------------+
+```
 
 It does a cmpxchg with the pointer to the previous head page to make it point to the reader page. Note that the new pointer does not have the HEADER flag set. This action atomically moves the head page forward:
 
-    +------+
-    |reader|          RING BUFFER
-    |page  |-------H-----------+
-    +------+                   v
-      |  ^          +---+   +---+   +---+
-      |  |          |   |-->|   |-->|   |
-      |  |          |   |<--|   |<--|   |<-+
-      |  |          +---+   +---+   +---+  |
-      |  |             |             ^ |   |
-      |  |             +-------------+ |   |
-      |  +-----------------------------+   |
-      +------------------------------------+
+```
++------+
+|reader|          RING BUFFER
+|page  |-------H-----------+
++------+                   v
+  |  ^          +---+   +---+   +---+
+  |  |          |   |-->|   |-->|   |
+  |  |          |   |<--|   |<--|   |<-+
+  |  |          +---+   +---+   +---+  |
+  |  |             |             ^ |   |
+  |  |             +-------------+ |   |
+  |  +-----------------------------+   |
+  +------------------------------------+
+```
 
 After the new head page is set, the previous pointer of the head page is updated to the reader page:
 
-    +------+
-    |reader|          RING BUFFER
-    |page  |-------H-----------+
-    +------+ <---------------+ v
-      |  ^          +---+   +---+   +---+
-      |  |          |   |-->|   |-->|   |
-      |  |          |   |   |   |<--|   |<-+
-      |  |          +---+   +---+   +---+  |
-      |  |             |             ^ |   |
-      |  |             +-------------+ |   |
-      |  +-----------------------------+   |
-      +------------------------------------+
+```
++------+
+|reader|          RING BUFFER
+|page  |-------H-----------+
++------+ <---------------+ v
+  |  ^          +---+   +---+   +---+
+  |  |          |   |-->|   |-->|   |
+  |  |          |   |   |   |<--|   |<-+
+  |  |          +---+   +---+   +---+  |
+  |  |             |             ^ |   |
+  |  |             +-------------+ |   |
+  |  +-----------------------------+   |
+  +------------------------------------+
 
-    +------+
-    |buffer|          RING BUFFER
-    |page  |-------H-----------+  <--- New head page
-    +------+ <---------------+ v
-      |  ^          +---+   +---+   +---+
-      |  |          |   |   |   |-->|   |
-      |  |  New     |   |   |   |<--|   |<-+
-      |  | Reader   +---+   +---+   +---+  |
-      |  |  page ----^                 |   |
-      |  |                             |   |
-      |  +-----------------------------+   |
-      +------------------------------------+
++------+
+|buffer|          RING BUFFER
+|page  |-------H-----------+  <--- New head page
++------+ <---------------+ v
+  |  ^          +---+   +---+   +---+
+  |  |          |   |   |   |-->|   |
+  |  |  New     |   |   |   |<--|   |<-+
+  |  | Reader   +---+   +---+   +---+  |
+  |  |  page ----^                 |   |
+  |  |                             |   |
+  |  +-----------------------------+   |
+  +------------------------------------+
+```
 
 Another important point: The page that the reader page points back to by its previous pointer (the one that now points to the new head page) never points back to the reader page. That is because the reader page is not part of the ring buffer. Traversing the ring buffer via the next pointers will always stay in the ring buffer. Traversing the ring buffer via the prev pointers may not.
 
 Note, the way to determine a reader page is simply by examining the previous pointer of the page. If the next pointer of the previous page does not point back to the original page, then the original page is a reader page:
 
-    +--------+
-    | reader |  next   +----+
-    |  page  |-------->|    |<====== (buffer page)
-    +--------+         +----+
-        |                | ^
-        |                v | next
-    prev |              +----+
-        +------------->|    |
-                       +----+
+```
++--------+
+| reader |  next   +----+
+|  page  |-------->|    |<====== (buffer page)
++--------+         +----+
+    |                | ^
+    |                v | next
+prev |              +----+
+    +------------->|    |
+                   +----+
+```
 
 The way the head page moves forward:
 
@@ -511,73 +559,83 @@ When the tail page meets the head page and the buffer is in overwrite mode and m
 
 This eliminates any races that the reader can have on the writer. The reader must spin, and this is why the reader cannot preempt the writer:
 
-    tail page
-       |
-       v
-    +---+    +---+    +---+    +---+
-    <---|   |--->|   |-H->|   |--->|   |--->
-    --->|   |<---|   |<---|   |<---|   |<---
-    +---+    +---+    +---+    +---+
+```
+tail page
+   |
+   v
++---+    +---+    +---+    +---+
+<---|   |--->|   |-H->|   |--->|   |--->
+--->|   |<---|   |<---|   |<---|   |<---
++---+    +---+    +---+    +---+
 
-    tail page
-       |
-       v
-    +---+    +---+    +---+    +---+
-    <---|   |--->|   |-U->|   |--->|   |--->
-    --->|   |<---|   |<---|   |<---|   |<---
-    +---+    +---+    +---+    +---+
+tail page
+   |
+   v
++---+    +---+    +---+    +---+
+<---|   |--->|   |-U->|   |--->|   |--->
+--->|   |<---|   |<---|   |<---|   |<---
++---+    +---+    +---+    +---+
+```
 
 The following page will be made into the new head page:
 
-    tail page
-        |
-        v
-    +---+    +---+    +---+    +---+
-    <---|   |--->|   |-U->|   |-H->|   |--->
-    --->|   |<---|   |<---|   |<---|   |<---
-    +---+    +---+    +---+    +---+
+```
+tail page
+    |
+    v
++---+    +---+    +---+    +---+
+<---|   |--->|   |-U->|   |-H->|   |--->
+--->|   |<---|   |<---|   |<---|   |<---
++---+    +---+    +---+    +---+
+```
 
 After the new head page has been set, we can set the old head page pointer back to NORMAL:
 
-    tail page
-        |
-        v
-    +---+    +---+    +---+    +---+
-    <---|   |--->|   |--->|   |-H->|   |--->
-    --->|   |<---|   |<---|   |<---|   |<---
-    +---+    +---+    +---+    +---+
+```
+tail page
+    |
+    v
++---+    +---+    +---+    +---+
+<---|   |--->|   |--->|   |-H->|   |--->
+--->|   |<---|   |<---|   |<---|   |<---
++---+    +---+    +---+    +---+
+```
 
 After the head page has been moved, the tail page may now move forward:
 
-    tail page
-        |
-        v
-    +---+    +---+    +---+    +---+
-    <---|   |--->|   |--->|   |-H->|   |--->
-    --->|   |<---|   |<---|   |<---|   |<---
-    +---+    +---+    +---+    +---+
+```
+tail page
+    |
+    v
++---+    +---+    +---+    +---+
+<---|   |--->|   |--->|   |-H->|   |--->
+--->|   |<---|   |<---|   |<---|   |<---
++---+    +---+    +---+    +---+
+```
 
 The above are the trivial updates. Now for the more complex scenarios.
 
 As stated before, if enough writes preempt the first write, the tail page may make it all the way around the buffer and meet the commit page. At this time, we must start dropping writes (usually with some kind of warning to the user). But what happens if the commit was still on the reader page? The commit page is not part of the ring buffer. The tail page must account for this:
 
-    reader page    commit page
-        |              |
-        v              |
-       +---+           |
-       |   |<----------+
-       |   |
-       |   |------+
-       +---+      |
-                  |
-                  v
-    +---+    +---+    +---+    +---+
-    <---|   |--->|   |-H->|   |--->|   |--->
-    --->|   |<---|   |<---|   |<---|   |<---
-    +---+    +---+    +---+    +---+
-         ^
-         |
-     tail page
+```
+reader page    commit page
+    |              |
+    v              |
+   +---+           |
+   |   |<----------+
+   |   |
+   |   |------+
+   +---+      |
+              |
+              v
++---+    +---+    +---+    +---+
+<---|   |--->|   |-H->|   |--->|   |--->
+--->|   |<---|   |<---|   |<---|   |<---
++---+    +---+    +---+    +---+
+     ^
+     |
+ tail page
+```
 
 If the tail page were to simply push the head page forward, the commit when leaving the reader page would not be pointing to the correct page.
 
@@ -591,236 +649,278 @@ In the pushing forward of the tail page we must first push forward the head page
 
 Only writers move the tail page. This must be done atomically to protect against nested writers:
 
-    temp_page = tail_page
-    next_page = temp_page->next
-    cmpxchg(tail_page, temp_page, next_page)
+```
+temp_page = tail_page
+next_page = temp_page->next
+cmpxchg(tail_page, temp_page, next_page)
+```
 
 The above will update the tail page if it is still pointing to the expected page. If this fails, a nested write pushed it forward, the current write does not need to push it:
 
-    temp page
-        |
-        v
-     tail page
-        |
-        v
-    +---+    +---+    +---+    +---+
-    <---|   |--->|   |--->|   |--->|   |--->
-    --->|   |<---|   |<---|   |<---|   |<---
-    +---+    +---+    +---+    +---+
+```
+temp page
+    |
+    v
+ tail page
+    |
+    v
++---+    +---+    +---+    +---+
+<---|   |--->|   |--->|   |--->|   |--->
+--->|   |<---|   |<---|   |<---|   |<---
++---+    +---+    +---+    +---+
+```
 
 Nested write comes in and moves the tail page forward:
 
-    tail page (moved by nested writer)
-    temp page   |
-    |        |
-    v        v
-    +---+    +---+    +---+    +---+
-    <---|   |--->|   |--->|   |--->|   |--->
-    --->|   |<---|   |<---|   |<---|   |<---
-    +---+    +---+    +---+    +---+
+```
+tail page (moved by nested writer)
+temp page   |
+|        |
+v        v
++---+    +---+    +---+    +---+
+<---|   |--->|   |--->|   |--->|   |--->
+--->|   |<---|   |<---|   |<---|   |<---
++---+    +---+    +---+    +---+
+```
 
 The above would fail the cmpxchg, but since the tail page has already been moved forward, the writer will just try again to reserve storage on the new tail page.
 
 But the moving of the head page is a bit more complex:
 
-    tail page
-       |
-       v
-    +---+    +---+    +---+    +---+
-    <---|   |--->|   |-H->|   |--->|   |--->
-    --->|   |<---|   |<---|   |<---|   |<---
-    +---+    +---+    +---+    +---+
+```
+tail page
+   |
+   v
++---+    +---+    +---+    +---+
+<---|   |--->|   |-H->|   |--->|   |--->
+--->|   |<---|   |<---|   |<---|   |<---
++---+    +---+    +---+    +---+
+```
 
 The write converts the head page pointer to UPDATE:
 
-    tail page
-       |
-       v
-    +---+    +---+    +---+    +---+
-    <---|   |--->|   |-U->|   |--->|   |--->
-    --->|   |<---|   |<---|   |<---|   |<---
-    +---+    +---+    +---+    +---+
+```
+tail page
+   |
+   v
++---+    +---+    +---+    +---+
+<---|   |--->|   |-U->|   |--->|   |--->
+--->|   |<---|   |<---|   |<---|   |<---
++---+    +---+    +---+    +---+
+```
 
 But if a nested writer preempts here, it will see that the next page is a head page, but it is also nested. It will detect that it is nested and will save that information. The detection is the fact that it sees the UPDATE flag instead of a HEADER or NORMAL pointer.
 
 The nested writer will set the new head page pointer:
 
-    tail page
-        |
-        v
-    +---+    +---+    +---+    +---+
-    <---|   |--->|   |-U->|   |-H->|   |--->
-    --->|   |<---|   |<---|   |<---|   |<---
-    +---+    +---+    +---+    +---+
+```
+tail page
+    |
+    v
++---+    +---+    +---+    +---+
+<---|   |--->|   |-U->|   |-H->|   |--->
+--->|   |<---|   |<---|   |<---|   |<---
++---+    +---+    +---+    +---+
+```
 
 But it will not reset the update back to normal. Only the writer that converted a pointer from HEAD to UPDATE will convert it back to NORMAL:
 
-    tail page
-        |
-        v
-    +---+    +---+    +---+    +---+
-    <---|   |--->|   |-U->|   |-H->|   |--->
-    --->|   |<---|   |<---|   |<---|   |<---
-    +---+    +---+    +---+    +---+
+```
+tail page
+    |
+    v
++---+    +---+    +---+    +---+
+<---|   |--->|   |-U->|   |-H->|   |--->
+--->|   |<---|   |<---|   |<---|   |<---
++---+    +---+    +---+    +---+
+```
 
 After the nested writer finishes, the outermost writer will convert the UPDATE pointer to NORMAL:
 
-    tail page
-        |
-        v
-    +---+    +---+    +---+    +---+
-    <---|   |--->|   |--->|   |-H->|   |--->
-    --->|   |<---|   |<---|   |<---|   |<---
-    +---+    +---+    +---+    +---+
+```
+tail page
+    |
+    v
++---+    +---+    +---+    +---+
+<---|   |--->|   |--->|   |-H->|   |--->
+--->|   |<---|   |<---|   |<---|   |<---
++---+    +---+    +---+    +---+
+```
 
 It can be even more complex if several nested writes came in and moved the tail page ahead several pages:
 
-    (first writer)
+```
+(first writer)
 
-                tail page
-                   |
-                   v
-        +---+    +---+    +---+    +---+
-    <---|   |--->|   |-H->|   |--->|   |--->
-    --->|   |<---|   |<---|   |<---|   |<---
-        +---+    +---+    +---+    +---+
+            tail page
+               |
+               v
+    +---+    +---+    +---+    +---+
+<---|   |--->|   |-H->|   |--->|   |--->
+--->|   |<---|   |<---|   |<---|   |<---
+    +---+    +---+    +---+    +---+
+```
 
 The write converts the head page pointer to UPDATE:
 
-    tail page
-       |
-       v
-    +---+    +---+    +---+    +---+
-    <---|   |--->|   |-U->|   |--->|   |--->
-    --->|   |<---|   |<---|   |<---|   |<---
-    +---+    +---+    +---+    +---+
+```
+tail page
+   |
+   v
++---+    +---+    +---+    +---+
+<---|   |--->|   |-U->|   |--->|   |--->
+--->|   |<---|   |<---|   |<---|   |<---
++---+    +---+    +---+    +---+
+```
 
 Next writer comes in, and sees the update and sets up the new head page:
 
-    (second writer)
+```
+(second writer)
 
-               tail page
-                   |
-                   v
-        +---+    +---+    +---+    +---+
-    <---|   |--->|   |-U->|   |-H->|   |--->
-    --->|   |<---|   |<---|   |<---|   |<---
-        +---+    +---+    +---+    +---+
+           tail page
+               |
+               v
+    +---+    +---+    +---+    +---+
+<---|   |--->|   |-U->|   |-H->|   |--->
+--->|   |<---|   |<---|   |<---|   |<---
+    +---+    +---+    +---+    +---+
+```
 
 The nested writer moves the tail page forward. But does not set the old update page to NORMAL because it is not the outermost writer:
 
-    tail page
-        |
-        v
-    +---+    +---+    +---+    +---+
-    <---|   |--->|   |-U->|   |-H->|   |--->
-    --->|   |<---|   |<---|   |<---|   |<---
-    +---+    +---+    +---+    +---+
+```
+tail page
+    |
+    v
++---+    +---+    +---+    +---+
+<---|   |--->|   |-U->|   |-H->|   |--->
+--->|   |<---|   |<---|   |<---|   |<---
++---+    +---+    +---+    +---+
+```
 
 Another writer preempts and sees the page after the tail page is a head page. It changes it from HEAD to UPDATE:
 
-    (third writer)
+```
+(third writer)
 
-                        tail page
-                            |
-                            v
-        +---+    +---+    +---+    +---+
-    <---|   |--->|   |-U->|   |-U->|   |--->
-    --->|   |<---|   |<---|   |<---|   |<---
-        +---+    +---+    +---+    +---+
+                    tail page
+                        |
+                        v
+    +---+    +---+    +---+    +---+
+<---|   |--->|   |-U->|   |-U->|   |--->
+--->|   |<---|   |<---|   |<---|   |<---
+    +---+    +---+    +---+    +---+
+```
 
 The writer will move the head page forward:
 
-    (third writer)
+```
+(third writer)
 
-                        tail page
-                            |
-                            v
-        +---+    +---+    +---+    +---+
-    <---|   |--->|   |-U->|   |-U->|   |-H->
-    --->|   |<---|   |<---|   |<---|   |<---
-        +---+    +---+    +---+    +---+
+                    tail page
+                        |
+                        v
+    +---+    +---+    +---+    +---+
+<---|   |--->|   |-U->|   |-U->|   |-H->
+--->|   |<---|   |<---|   |<---|   |<---
+    +---+    +---+    +---+    +---+
+```
 
 But now that the third writer did change the HEAD flag to UPDATE it will convert it to normal:
 
-    (third writer)
+```
+(third writer)
 
-                        tail page
-                            |
-                            v
-        +---+    +---+    +---+    +---+
-    <---|   |--->|   |-U->|   |--->|   |-H->
-    --->|   |<---|   |<---|   |<---|   |<---
-        +---+    +---+    +---+    +---+
+                    tail page
+                        |
+                        v
+    +---+    +---+    +---+    +---+
+<---|   |--->|   |-U->|   |--->|   |-H->
+--->|   |<---|   |<---|   |<---|   |<---
+    +---+    +---+    +---+    +---+
+```
 
 Then it will move the tail page, and return back to the second writer:
 
-    (second writer)
+```
+(second writer)
 
-                                 tail page
-                                     |
-                                     v
-        +---+    +---+    +---+    +---+
-    <---|   |--->|   |-U->|   |--->|   |-H->
-    --->|   |<---|   |<---|   |<---|   |<---
-        +---+    +---+    +---+    +---+
+                             tail page
+                                 |
+                                 v
+    +---+    +---+    +---+    +---+
+<---|   |--->|   |-U->|   |--->|   |-H->
+--->|   |<---|   |<---|   |<---|   |<---
+    +---+    +---+    +---+    +---+
+```
 
 The second writer will fail to move the tail page because it was already moved, so it will try again and add its data to the new tail page. It will return to the first writer:
 
-    (first writer)
+```
+(first writer)
 
-                                 tail page
-                                     |
-                                     v
-        +---+    +---+    +---+    +---+
-    <---|   |--->|   |-U->|   |--->|   |-H->
-    --->|   |<---|   |<---|   |<---|   |<---
-        +---+    +---+    +---+    +---+
+                             tail page
+                                 |
+                                 v
+    +---+    +---+    +---+    +---+
+<---|   |--->|   |-U->|   |--->|   |-H->
+--->|   |<---|   |<---|   |<---|   |<---
+    +---+    +---+    +---+    +---+
+```
 
 The first writer cannot know atomically if the tail page moved while it updates the HEAD page. It will then update the head page to what it thinks is the new head page:
 
-    (first writer)
+```
+(first writer)
 
-                                 tail page
-                                     |
-                                     v
-        +---+    +---+    +---+    +---+
-    <---|   |--->|   |-U->|   |-H->|   |-H->
-    --->|   |<---|   |<---|   |<---|   |<---
-        +---+    +---+    +---+    +---+
+                             tail page
+                                 |
+                                 v
+    +---+    +---+    +---+    +---+
+<---|   |--->|   |-U->|   |-H->|   |-H->
+--->|   |<---|   |<---|   |<---|   |<---
+    +---+    +---+    +---+    +---+
+```
 
 Since the cmpxchg returns the old value of the pointer the first writer will see it succeeded in updating the pointer from NORMAL to HEAD. But as we can see, this is not good enough. It must also check to see if the tail page is either where it use to be or on the next page:
 
-    (first writer)
+```
+(first writer)
 
-                   A        B    tail page
-                   |        |        |
-                   v        v        v
-        +---+    +---+    +---+    +---+
-    <---|   |--->|   |-U->|   |-H->|   |-H->
-    --->|   |<---|   |<---|   |<---|   |<---
-        +---+    +---+    +---+    +---+
+               A        B    tail page
+               |        |        |
+               v        v        v
+    +---+    +---+    +---+    +---+
+<---|   |--->|   |-U->|   |-H->|   |-H->
+--->|   |<---|   |<---|   |<---|   |<---
+    +---+    +---+    +---+    +---+
+```
 
 If tail page != A and tail page != B, then it must reset the pointer back to NORMAL. The fact that it only needs to worry about nested writers means that it only needs to check this after setting the HEAD page:
 
-    (first writer)
+```
+(first writer)
 
-                   A        B    tail page
-                   |        |        |
-                   v        v        v
-        +---+    +---+    +---+    +---+
-    <---|   |--->|   |-U->|   |--->|   |-H->
-    --->|   |<---|   |<---|   |<---|   |<---
-        +---+    +---+    +---+    +---+
+               A        B    tail page
+               |        |        |
+               v        v        v
+    +---+    +---+    +---+    +---+
+<---|   |--->|   |-U->|   |--->|   |-H->
+--->|   |<---|   |<---|   |<---|   |<---
+    +---+    +---+    +---+    +---+
+```
 
 Now the writer can update the head page. This is also why the head page must remain in UPDATE and only reset by the outermost writer. This prevents the reader from seeing the incorrect head page:
 
-    (first writer)
+```
+(first writer)
 
-                   A        B    tail page
-                   |        |        |
-                   v        v        v
-        +---+    +---+    +---+    +---+
-    <---|   |--->|   |--->|   |--->|   |-H->
-    --->|   |<---|   |<---|   |<---|   |<---
-        +---+    +---+    +---+    +---+
+               A        B    tail page
+               |        |        |
+               v        v        v
+    +---+    +---+    +---+    +---+
+<---|   |--->|   |--->|   |--->|   |-H->
+--->|   |<---|   |<---|   |<---|   |<---
+    +---+    +---+    +---+    +---+
+```

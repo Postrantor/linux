@@ -12,7 +12,7 @@ The fprobe is a wrapper of ftrace (+ kretprobe-like return callback) to attach c
 
 Typically, [fprobe]{.title-ref} data structure is initialized with the [entry_handler]{.title-ref} and/or [exit_handler]{.title-ref} as below.
 
-``` c
+```c
 struct fprobe fp = {
        .entry_handler  = my_entry_callback,
        .exit_handler   = my_exit_callback,
@@ -23,11 +23,13 @@ To enable the fprobe, call one of register_fprobe(), register_fprobe_ips(), and 
 
 The register_fprobe() enables a fprobe by function-name filters. E.g. this enables \@fp on \"func\*()\" function except \"func2()\".:
 
-    register_fprobe(&fp, "func*", "func2");
+```
+register_fprobe(&fp, "func*", "func2");
+```
 
 The register_fprobe_ips() enables a fprobe by ftrace-location addresses. E.g.
 
-``` c
+```c
 unsigned long ips[] = { 0x.... };
 
 register_fprobe_ips(&fp, ips, ARRAY_SIZE(ips));
@@ -35,7 +37,7 @@ register_fprobe_ips(&fp, ips, ARRAY_SIZE(ips));
 
 And the register_fprobe_syms() enables a fprobe by symbol names. E.g.
 
-``` c
+```c
 char syms[] = {"func1", "func2", "func3"};
 
 register_fprobe_syms(&fp, syms, ARRAY_SIZE(syms));
@@ -43,19 +45,27 @@ register_fprobe_syms(&fp, syms, ARRAY_SIZE(syms));
 
 To disable (remove from functions) this fprobe, call:
 
-    unregister_fprobe(&fp);
+```
+unregister_fprobe(&fp);
+```
 
 You can temporally (soft) disable the fprobe by:
 
-    disable_fprobe(&fp);
+```
+disable_fprobe(&fp);
+```
 
 and resume by:
 
-    enable_fprobe(&fp);
+```
+enable_fprobe(&fp);
+```
 
 The above is defined by including the header:
 
-    #include <linux/fprobe.h>
+```
+#include <linux/fprobe.h>
+```
 
 Same as ftrace, the registered callbacks will start being called some time after the register_fprobe() is called and before it returns. See `Documentation/trace/ftrace.rst`{.interpreted-text role="file"}.
 
@@ -65,7 +75,7 @@ Also, the unregister_fprobe() will guarantee that the both enter and exit handle
 
 The prototype of the entry/exit callback function are as follows:
 
-``` c
+```c
 int entry_callback(struct fprobe *fp, unsigned long entry_ip, unsigned long ret_ip, struct pt_regs *regs, void *entry_data);
 
 void exit_callback(struct fprobe *fp, unsigned long entry_ip, unsigned long ret_ip, struct pt_regs *regs, void *entry_data);
@@ -75,23 +85,23 @@ Note that the \@entry_ip is saved at function entry and passed to exit handler. 
 
 \@fp
 
-:   This is the address of [fprobe]{.title-ref} data structure related to this handler. You can embed the [fprobe]{.title-ref} to your data structure and get it by container_of() macro from \@fp. The \@fp must not be NULL.
+: This is the address of [fprobe]{.title-ref} data structure related to this handler. You can embed the [fprobe]{.title-ref} to your data structure and get it by container_of() macro from \@fp. The \@fp must not be NULL.
 
 \@entry_ip
 
-:   This is the ftrace address of the traced function (both entry and exit). Note that this may not be the actual entry address of the function but the address where the ftrace is instrumented.
+: This is the ftrace address of the traced function (both entry and exit). Note that this may not be the actual entry address of the function but the address where the ftrace is instrumented.
 
 \@ret_ip
 
-:   This is the return address that the traced function will return to, somewhere in the caller. This can be used at both entry and exit.
+: This is the return address that the traced function will return to, somewhere in the caller. This can be used at both entry and exit.
 
 \@regs
 
-:   This is the [pt_regs]{.title-ref} data structure at the entry and exit. Note that the instruction pointer of \@regs may be different from the \@entry_ip in the entry_handler. If you need traced instruction pointer, you need to use \@entry_ip. On the other hand, in the exit_handler, the instruction pointer of \@regs is set to the current return address.
+: This is the [pt_regs]{.title-ref} data structure at the entry and exit. Note that the instruction pointer of \@regs may be different from the \@entry_ip in the entry_handler. If you need traced instruction pointer, you need to use \@entry_ip. On the other hand, in the exit_handler, the instruction pointer of \@regs is set to the current return address.
 
 \@entry_data
 
-:   This is a local storage to share the data between entry and exit handlers. This storage is NULL by default. If the user specify [exit_handler]{.title-ref} field and [entry_data_size]{.title-ref} field when registering the fprobe, the storage is allocated and passed to both [entry_handler]{.title-ref} and [exit_handler]{.title-ref}.
+: This is a local storage to share the data between entry and exit handlers. This storage is NULL by default. If the user specify [exit_handler]{.title-ref} field and [entry_data_size]{.title-ref} field when registering the fprobe, the storage is allocated and passed to both [entry_handler]{.title-ref} and [exit_handler]{.title-ref}.
 
 # Share the callbacks with kprobes
 
@@ -101,9 +111,9 @@ Kprobes has per-cpu \'current_kprobe\' variable which protects the kprobe handle
 
 This is not a matter if the common callback code has its own recursion detection, or it can handle the recursion in the different contexts (normal/interrupt/NMI.) But if it relies on the \'current_kprobe\' recursion lock, it has to check kprobe_running() and use [kprobe_busy]()\*() APIs.
 
-Fprobe has FPROBE_FL_KPROBE_SHARED flag to do this. If your common callback code will be shared with kprobes, please set FPROBE_FL_KPROBE_SHARED *before* registering the fprobe, like:
+Fprobe has FPROBE_FL_KPROBE_SHARED flag to do this. If your common callback code will be shared with kprobes, please set FPROBE_FL_KPROBE_SHARED _before_ registering the fprobe, like:
 
-``` c
+```c
 fprobe.flags = FPROBE_FL_KPROBE_SHARED;
 
 register_fprobe(&fprobe, "func*", NULL);
@@ -115,8 +125,8 @@ This will protect your common callback from the nested call.
 
 The [fprobe]{.title-ref} data structure has [fprobe::nmissed]{.title-ref} counter field as same as kprobes. This counter counts up when;
 
-> -   fprobe fails to take ftrace_recursion lock. This usually means that a function which is traced by other ftrace users is called from the entry_handler.
-> -   fprobe fails to setup the function exit because of the shortage of rethook (the shadow stack for hooking the function return.)
+> - fprobe fails to take ftrace_recursion lock. This usually means that a function which is traced by other ftrace users is called from the entry_handler.
+> - fprobe fails to setup the function exit because of the shortage of rethook (the shadow stack for hooking the function return.)
 
 The [fprobe::nmissed]{.title-ref} field counts up in both cases. Therefore, the former skips both of entry and exit callback and the latter skips the exit callback, but in both case the counter will increase by 1.
 

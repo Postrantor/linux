@@ -1,6 +1,6 @@
 ---
 author:
-- Mathieu Desnoyers
+  - Mathieu Desnoyers
 title: Using the Linux Kernel Tracepoints
 ---
 
@@ -18,52 +18,57 @@ They can be used for tracing and performance accounting.
 
 Two elements are required for tracepoints :
 
--   A tracepoint definition, placed in a header file.
--   The tracepoint statement, in C code.
+- A tracepoint definition, placed in a header file.
+- The tracepoint statement, in C code.
 
 In order to use tracepoints, you should include linux/tracepoint.h.
 
 In include/trace/events/subsys.h:
 
-    #undef TRACE_SYSTEM
-    #define TRACE_SYSTEM subsys
+```
+#undef TRACE_SYSTEM
+#define TRACE_SYSTEM subsys
 
-    #if !defined(_TRACE_SUBSYS_H) || defined(TRACE_HEADER_MULTI_READ)
-    #define _TRACE_SUBSYS_H
+#if !defined(_TRACE_SUBSYS_H) || defined(TRACE_HEADER_MULTI_READ)
+#define _TRACE_SUBSYS_H
 
-    #include <linux/tracepoint.h>
+#include <linux/tracepoint.h>
 
-    DECLARE_TRACE(subsys_eventname,
-        TP_PROTO(int firstarg, struct task_struct *p),
-        TP_ARGS(firstarg, p));
+DECLARE_TRACE(subsys_eventname,
+    TP_PROTO(int firstarg, struct task_struct *p),
+    TP_ARGS(firstarg, p));
 
-    #endif /* _TRACE_SUBSYS_H */
+#endif /* _TRACE_SUBSYS_H */
 
-    /* This part must be outside protection */
-    #include <trace/define_trace.h>
+/* This part must be outside protection */
+#include <trace/define_trace.h>
+```
 
 In subsys/file.c (where the tracing statement must be added):
 
-    #include <trace/events/subsys.h>
+```
+#include <trace/events/subsys.h>
 
-    #define CREATE_TRACE_POINTS
-    DEFINE_TRACE(subsys_eventname);
+#define CREATE_TRACE_POINTS
+DEFINE_TRACE(subsys_eventname);
 
-    void somefct(void)
-    {
-        ...
-        trace_subsys_eventname(arg, task);
-        ...
-    }
+void somefct(void)
+{
+    ...
+    trace_subsys_eventname(arg, task);
+    ...
+}
+```
 
 Where :
 
-:   -   subsys_eventname is an identifier unique to your event
-        -   subsys is the name of your subsystem.
-        -   eventname is the name of the event to trace.
-    -   [TP_PROTO(int firstarg, struct task_struct \*p)]{.title-ref} is the prototype of the function called by this tracepoint.
-    -   [TP_ARGS(firstarg, p)]{.title-ref} are the parameters names, same as found in the prototype.
-    -   if you use the header in multiple source files, [#define CREATE_TRACE_POINTS]{.title-ref} should appear only in one source file.
+: - subsys_eventname is an identifier unique to your event
+
+- subsys is the name of your subsystem.
+- eventname is the name of the event to trace.
+- [TP_PROTO(int firstarg, struct task_struct \*p)]{.title-ref} is the prototype of the function called by this tracepoint.
+- [TP_ARGS(firstarg, p)]{.title-ref} are the parameters names, same as found in the prototype.
+- if you use the header in multiple source files, [#define CREATE_TRACE_POINTS]{.title-ref} should appear only in one source file.
 
 Connecting a function (probe) to a tracepoint is done by providing a probe (function to call) for the specific tracepoint through register_trace_subsys_eventname(). Removing a probe is done through unregister_trace_subsys_eventname(); it will remove the probe.
 
@@ -77,15 +82,17 @@ If the tracepoint has to be used in kernel modules, an EXPORT_TRACEPOINT_SYMBOL_
 
 If you need to do a bit of work for a tracepoint parameter, and that work is only used for the tracepoint, that work can be encapsulated within an if statement with the following:
 
-    if (trace_foo_bar_enabled()) {
-        int i;
-        int tot = 0;
+```
+if (trace_foo_bar_enabled()) {
+    int i;
+    int tot = 0;
 
-        for (i = 0; i < count; i++)
-            tot += calculate_nuggets();
+    for (i = 0; i < count; i++)
+        tot += calculate_nuggets();
 
-        trace_foo_bar(tot);
-    }
+    trace_foo_bar(tot);
+}
+```
 
 All [trace]()\<tracepoint\>() calls have a matching [trace]()\<tracepoint\>\_enabled() function defined that returns true if the tracepoint is enabled and false otherwise. The [trace]()\<tracepoint\>() should always be within the block of the if ([trace]()\<tracepoint\>\_enabled()) to prevent races between the tracepoint being enabled and the check being seen.
 
@@ -96,26 +103,30 @@ The advantage of using the [trace]()\<tracepoint\>\_enabled() is that it uses th
 Note
 :::
 
-The convenience macro TRACE_EVENT provides an alternative way to define tracepoints. Check <http://lwn.net/Articles/379903>, <http://lwn.net/Articles/381064> and <http://lwn.net/Articles/383362> for a series of articles with more details.
+The convenience macro TRACE_EVENT provides an alternative way to define tracepoints. Check [http://lwn.net/Articles/379903](http://lwn.net/Articles/379903), [http://lwn.net/Articles/381064](http://lwn.net/Articles/381064) and [http://lwn.net/Articles/383362](http://lwn.net/Articles/383362) for a series of articles with more details.
 :::
 
 If you require calling a tracepoint from a header file, it is not recommended to call one directly or to use the [trace]()\<tracepoint\>\_enabled() function call, as tracepoints in header files can have side effects if a header is included from a file that has CREATE_TRACE_POINTS set, as well as the [trace]()\<tracepoint\>() is not that small of an inline and can bloat the kernel if used by other inlined functions. Instead, include tracepoint-defs.h and use tracepoint_enabled().
 
 In a C file:
 
-    void do_trace_foo_bar_wrapper(args)
-    {
-        trace_foo_bar(args);
-    }
+```
+void do_trace_foo_bar_wrapper(args)
+{
+    trace_foo_bar(args);
+}
+```
 
 In the header file:
 
-    DECLARE_TRACEPOINT(foo_bar);
+```
+DECLARE_TRACEPOINT(foo_bar);
 
-    static inline void some_inline_function()
-    {
-        [..]
-        if (tracepoint_enabled(foo_bar))
-            do_trace_foo_bar_wrapper(args);
-        [..]
-    }
+static inline void some_inline_function()
+{
+    [..]
+    if (tracepoint_enabled(foo_bar))
+        do_trace_foo_bar_wrapper(args);
+    [..]
+}
+```

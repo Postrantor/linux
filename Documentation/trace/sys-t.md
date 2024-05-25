@@ -34,4 +34,4 @@ ts_interval and clocksync_interval determine how much time in milliseconds can p
 
 See Documentation/ABI/testing/configfs-stp-policy-p_sys-t for more details.
 
--   \[1\] <https://www.mipi.org/specifications/sys-t>
+- \[1\] [https://www.mipi.org/specifications/sys-t](https://www.mipi.org/specifications/sys-t)

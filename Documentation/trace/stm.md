@@ -12,12 +12,14 @@ To solve this mapping problem, stm class provides a policy management mechanism 
 
 This policy is a tree structure containing rules (policy_node) that have a name (string identifier) and a range of masters and channels associated with it, located in \"stp-policy\" subsystem directory in configfs. The topmost directory\'s name (the policy) is formatted as the STM device name to which this policy applies and an arbitrary string identifier separated by a stop. From the example above, a rule may look like this:
 
-    $ ls /config/stp-policy/dummy_stm.my-policy/user
-    channels masters
-    $ cat /config/stp-policy/dummy_stm.my-policy/user/masters
-    48 63
-    $ cat /config/stp-policy/dummy_stm.my-policy/user/channels
-    0 127
+```
+$ ls /config/stp-policy/dummy_stm.my-policy/user
+channels masters
+$ cat /config/stp-policy/dummy_stm.my-policy/user/masters
+48 63
+$ cat /config/stp-policy/dummy_stm.my-policy/user/channels
+0 127
+```
 
 which means that the master allocation pool for this rule consists of masters 48 through 63 and channel allocation pool has channels 0 through 127 in it. Now, any producer (trace source) identifying itself with \"user\" identification string will be allocated a master and channel from within these ranges.
 
@@ -37,7 +39,9 @@ Examples of STM devices are Intel(R) Trace Hub \[1\] and Coresight STM \[2\].
 
 For kernel-based trace sources, there is \"stm_source\" device class. Devices of this class can be connected and disconnected to/from stm devices at runtime via a sysfs attribute called \"stm_source_link\" by writing the name of the desired stm device there, for example:
 
-    $ echo dummy_stm.0 > /sys/class/stm_source/console/stm_source_link
+```
+$ echo dummy_stm.0 > /sys/class/stm_source/console/stm_source_link
+```
 
 For examples on how to use stm_source interface in the kernel, refer to stm_console, stm_heartbeat or stm_ftrace drivers.
 
@@ -55,5 +59,5 @@ This is another \"stm_source\" device, once the stm_ftrace has been linked with 
 
 Currently only Ftrace \"function\" tracer is supported.
 
--   \[1\] <https://software.intel.com/sites/default/files/managed/d3/3c/intel-th-developer-manual.pdf>
--   \[2\] <http://infocenter.arm.com/help/index.jsp?topic=/com.arm.doc.ddi0444b/index.html>
+- \[1\] [https://software.intel.com/sites/default/files/managed/d3/3c/intel-th-developer-manual.pdf](https://software.intel.com/sites/default/files/managed/d3/3c/intel-th-developer-manual.pdf)
+- \[2\] [http://infocenter.arm.com/help/index.jsp?topic=/com.arm.doc.ddi0444b/index.html](http://infocenter.arm.com/help/index.jsp?topic=/com.arm.doc.ddi0444b/index.html)

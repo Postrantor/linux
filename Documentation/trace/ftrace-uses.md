@@ -26,7 +26,7 @@ To register a function callback, a ftrace_ops is required. This structure is use
 
 There is only one field that is needed to be set when registering an ftrace_ops with ftrace:
 
-``` c
+```c
 struct ftrace_ops ops = {
       .func            = my_callback_func,
       .flags           = MY_FTRACE_FLAGS
@@ -38,15 +38,21 @@ Both .flags and .private are optional. Only .func is required.
 
 To enable tracing call:
 
-    register_ftrace_function(&ops);
+```
+register_ftrace_function(&ops);
+```
 
 To disable tracing call:
 
-    unregister_ftrace_function(&ops);
+```
+unregister_ftrace_function(&ops);
+```
 
 The above is defined by including the header:
 
-    #include <linux/ftrace.h>
+```
+#include <linux/ftrace.h>
+```
 
 The registered callback will start being called some time after the register_ftrace_function() is called and before it returns. The exact time that callbacks start being called is dependent upon architecture and scheduling of services. The callback itself will have to handle any synchronization if it must begin at an exact moment.
 
@@ -56,36 +62,38 @@ The unregister_ftrace_function() will guarantee that the callback is no longer b
 
 The prototype of the callback function is as follows (as of v4.14):
 
-``` c
+```c
 void callback_func(unsigned long ip, unsigned long parent_ip,
                    struct ftrace_ops *op, struct pt_regs *regs);
 ```
 
 \@ip
 
-:   
+:
 
-    This is the instruction pointer of the function that is being traced.
+```
+This is the instruction pointer of the function that is being traced.
 
-    :   (where the fentry or mcount is within the function)
+:   (where the fentry or mcount is within the function)
+```
 
 \@parent_ip
 
-:   This is the instruction pointer of the function that called the the function being traced (where the call of the function occurred).
+: This is the instruction pointer of the function that called the the function being traced (where the call of the function occurred).
 
 \@op
 
-:   This is a pointer to ftrace_ops that was used to register the callback. This can be used to pass data to the callback via the private pointer.
+: This is a pointer to ftrace_ops that was used to register the callback. This can be used to pass data to the callback via the private pointer.
 
 \@regs
 
-:   If the FTRACE_OPS_FL_SAVE_REGS or FTRACE_OPS_FL_SAVE_REGS_IF_SUPPORTED flags are set in the ftrace_ops structure, then this will be pointing to the pt_regs structure like it would be if an breakpoint was placed at the start of the function where ftrace was tracing. Otherwise it either contains garbage, or NULL.
+: If the FTRACE_OPS_FL_SAVE_REGS or FTRACE_OPS_FL_SAVE_REGS_IF_SUPPORTED flags are set in the ftrace_ops structure, then this will be pointing to the pt_regs structure like it would be if an breakpoint was placed at the start of the function where ftrace was tracing. Otherwise it either contains garbage, or NULL.
 
 # Protect your callback
 
 As functions can be called from anywhere, and it is possible that a function called by a callback may also be traced, and call that same callback, recursion protection must be used. There are two helper functions that can help in this regard. If you start your code with:
 
-``` c
+```c
 int bit;
 
 bit = ftrace_test_recursion_trylock(ip, parent_ip);
@@ -95,7 +103,7 @@ if (bit < 0)
 
 and end it with:
 
-``` c
+```c
 ftrace_test_recursion_unlock(bit);
 ```
 
@@ -105,7 +113,7 @@ Alternatively, if the FTRACE_OPS_FL_RECURSION flag is set on the ftrace_ops (as 
 
 If your callback accesses any data or critical section that requires RCU protection, it is best to make sure that RCU is \"watching\", otherwise that data or critical section will not be protected as expected. In this case add:
 
-``` c
+```c
 if (!rcu_is_watching())
     return;
 ```
@@ -118,62 +126,70 @@ The ftrace_ops flags are all defined and documented in include/linux/ftrace.h. S
 
 FTRACE_OPS_FL_SAVE_REGS
 
-:   If the callback requires reading or modifying the pt_regs passed to the callback, then it must set this flag. Registering a ftrace_ops with this flag set on an architecture that does not support passing of pt_regs to the callback will fail.
+: If the callback requires reading or modifying the pt_regs passed to the callback, then it must set this flag. Registering a ftrace_ops with this flag set on an architecture that does not support passing of pt_regs to the callback will fail.
 
 FTRACE_OPS_FL_SAVE_REGS_IF_SUPPORTED
 
-:   Similar to SAVE_REGS but the registering of a ftrace_ops on an architecture that does not support passing of regs will not fail with this flag set. But the callback must check if regs is NULL or not to determine if the architecture supports it.
+: Similar to SAVE_REGS but the registering of a ftrace_ops on an architecture that does not support passing of regs will not fail with this flag set. But the callback must check if regs is NULL or not to determine if the architecture supports it.
 
 FTRACE_OPS_FL_RECURSION
 
-:   By default, it is expected that the callback can handle recursion. But if the callback is not that worried about overehead, then setting this bit will add the recursion protection around the callback by calling a helper function that will do the recursion protection and only call the callback if it did not recurse.
+: By default, it is expected that the callback can handle recursion. But if the callback is not that worried about overehead, then setting this bit will add the recursion protection around the callback by calling a helper function that will do the recursion protection and only call the callback if it did not recurse.
 
-    Note, if this flag is not set, and recursion does occur, it could cause the system to crash, and possibly reboot via a triple fault.
+```
+Note, if this flag is not set, and recursion does occur, it could cause the system to crash, and possibly reboot via a triple fault.
 
-    Not, if this flag is set, then the callback will always be called with preemption disabled. If it is not set, then it is possible (but not guaranteed) that the callback will be called in preemptable context.
+Not, if this flag is set, then the callback will always be called with preemption disabled. If it is not set, then it is possible (but not guaranteed) that the callback will be called in preemptable context.
+```
 
 FTRACE_OPS_FL_IPMODIFY
 
-:   Requires FTRACE_OPS_FL_SAVE_REGS set. If the callback is to \"hijack\" the traced function (have another function called instead of the traced function), it requires setting this flag. This is what live kernel patches uses. Without this flag the pt_regs-\>ip can not be modified.
+: Requires FTRACE_OPS_FL_SAVE_REGS set. If the callback is to \"hijack\" the traced function (have another function called instead of the traced function), it requires setting this flag. This is what live kernel patches uses. Without this flag the pt_regs-\>ip can not be modified.
 
-    Note, only one ftrace_ops with FTRACE_OPS_FL_IPMODIFY set may be registered to any given function at a time.
+```
+Note, only one ftrace_ops with FTRACE_OPS_FL_IPMODIFY set may be registered to any given function at a time.
+```
 
 FTRACE_OPS_FL_RCU
 
-:   If this is set, then the callback will only be called by functions where RCU is \"watching\". This is required if the callback function performs any rcu_read_lock() operation.
+: If this is set, then the callback will only be called by functions where RCU is \"watching\". This is required if the callback function performs any rcu_read_lock() operation.
 
-    RCU stops watching when the system goes idle, the time when a CPU is taken down and comes back online, and when entering from kernel to user space and back to kernel space. During these transitions, a callback may be executed and RCU synchronization will not protect it.
+```
+RCU stops watching when the system goes idle, the time when a CPU is taken down and comes back online, and when entering from kernel to user space and back to kernel space. During these transitions, a callback may be executed and RCU synchronization will not protect it.
+```
 
 FTRACE_OPS_FL_PERMANENT
 
-:   If this is set on any ftrace ops, then the tracing cannot disabled by writing 0 to the proc sysctl ftrace_enabled. Equally, a callback with the flag set cannot be registered if ftrace_enabled is 0.
+: If this is set on any ftrace ops, then the tracing cannot disabled by writing 0 to the proc sysctl ftrace_enabled. Equally, a callback with the flag set cannot be registered if ftrace_enabled is 0.
 
-    Livepatch uses it not to lose the function redirection, so the system stays protected.
+```
+Livepatch uses it not to lose the function redirection, so the system stays protected.
+```
 
 # Filtering which functions to trace
 
 If a callback is only to be called from specific functions, a filter must be set up. The filters are added by name, or ip if it is known.
 
-``` c
+```c
 int ftrace_set_filter(struct ftrace_ops *ops, unsigned char *buf,
                       int len, int reset);
 ```
 
 \@ops
 
-:   The ops to set the filter with
+: The ops to set the filter with
 
 \@buf
 
-:   The string that holds the function filter text.
+: The string that holds the function filter text.
 
 \@len
 
-:   The length of the string.
+: The length of the string.
 
 \@reset
 
-:   Non-zero to reset all filters before applying this filter.
+: Non-zero to reset all filters before applying this filter.
 
 Filters denote which functions should be enabled when tracing is enabled. If \@buf is NULL and reset is set, all functions will be enabled for tracing.
 
@@ -183,7 +199,7 @@ See Filter Commands in `Documentation/trace/ftrace.rst`{.interpreted-text role="
 
 To just trace the schedule function:
 
-``` c
+```c
 ret = ftrace_set_filter(&ops, "schedule", strlen("schedule"), 0);
 ```
 
@@ -191,13 +207,13 @@ To add more functions, call the ftrace_set_filter() more than once with the \@re
 
 To remove all the filtered functions and trace all functions:
 
-``` c
+```c
 ret = ftrace_set_filter(&ops, NULL, 0, 1);
 ```
 
 Sometimes more than one function has the same name. To trace just a specific function in this case, ftrace_set_filter_ip() can be used.
 
-``` c
+```c
 ret = ftrace_set_filter_ip(&ops, ip, 0, 0);
 ```
 
@@ -207,7 +223,7 @@ If a glob is used to set the filter, functions can be added to a \"notrace\" lis
 
 An empty \"notrace\" list means to allow all functions defined by the filter to be traced.
 
-``` c
+```c
 int ftrace_set_notrace(struct ftrace_ops *ops, unsigned char *buf,
                        int len, int reset);
 ```
@@ -218,7 +234,7 @@ A non-zero \@reset will clear the \"notrace\" list before adding functions that 
 
 Clearing the \"notrace\" list is the same as clearing the filter list
 
-``` c
+```c
 ret = ftrace_set_notrace(&ops, NULL, 0, 1);
 ```
 
@@ -226,7 +242,7 @@ The filter and notrace lists may be changed at any time. If only a set of functi
 
 If a filter is in place, and the \@reset is non-zero, and \@buf contains a matching glob to functions, the switch will happen during the time of the ftrace_set_filter() call. At no time will all functions call the callback.
 
-``` c
+```c
 ftrace_set_filter(&ops, "schedule", strlen("schedule"), 1);
 
 register_ftrace_function(&ops);
@@ -238,7 +254,7 @@ ftrace_set_filter(&ops, "try_to_wake_up", strlen("try_to_wake_up"), 1);
 
 is not the same as:
 
-``` c
+```c
 ftrace_set_filter(&ops, "schedule", strlen("schedule"), 1);
 
 register_ftrace_function(&ops);

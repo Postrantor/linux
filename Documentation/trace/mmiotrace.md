@@ -4,7 +4,7 @@ title: In-kernel memory-mapped I/O tracing
 
 Home page and links to optional user space tools:
 
-> <https://nouveau.freedesktop.org/wiki/MmioTrace>
+> [https://nouveau.freedesktop.org/wiki/MmioTrace](https://nouveau.freedesktop.org/wiki/MmioTrace)
 
 MMIO tracing was originally developed by Intel around 2003 for their Fault Injection Test Harness. In Dec 2006 - Jan 2007, using the code from Intel, Jeff Muizelaar created a tool for tracing MMIO accesses with the Nouveau project in mind. Since then many people have contributed.
 
@@ -18,29 +18,37 @@ Mmiotrace feature is compiled in by the CONFIG_MMIOTRACE option. Tracing is disa
 
 # Usage Quick Reference
 
-    $ mount -t debugfs debugfs /sys/kernel/debug
-    $ echo mmiotrace > /sys/kernel/tracing/current_tracer
-    $ cat /sys/kernel/tracing/trace_pipe > mydump.txt &
-    Start X or whatever.
-    $ echo "X is up" > /sys/kernel/tracing/trace_marker
-    $ echo nop > /sys/kernel/tracing/current_tracer
-    Check for lost events.
+```
+$ mount -t debugfs debugfs /sys/kernel/debug
+$ echo mmiotrace > /sys/kernel/tracing/current_tracer
+$ cat /sys/kernel/tracing/trace_pipe > mydump.txt &
+Start X or whatever.
+$ echo "X is up" > /sys/kernel/tracing/trace_marker
+$ echo nop > /sys/kernel/tracing/current_tracer
+Check for lost events.
+```
 
 # Usage
 
 Make sure debugfs is mounted to /sys/kernel/debug. If not (requires root privileges):
 
-    $ mount -t debugfs debugfs /sys/kernel/debug
+```
+$ mount -t debugfs debugfs /sys/kernel/debug
+```
 
 Check that the driver you are about to trace is not loaded.
 
 Activate mmiotrace (requires root privileges):
 
-    $ echo mmiotrace > /sys/kernel/tracing/current_tracer
+```
+$ echo mmiotrace > /sys/kernel/tracing/current_tracer
+```
 
 Start storing the trace:
 
-    $ cat /sys/kernel/tracing/trace_pipe > mydump.txt &
+```
+$ cat /sys/kernel/tracing/trace_pipe > mydump.txt &
+```
 
 The \'cat\' process should stay running (sleeping) in the background.
 
@@ -50,33 +58,45 @@ During tracing you can place comments (markers) into the trace by \$ echo \"X is
 
 Shut down mmiotrace (requires root privileges):
 
-    $ echo nop > /sys/kernel/tracing/current_tracer
+```
+$ echo nop > /sys/kernel/tracing/current_tracer
+```
 
 The \'cat\' process exits. If it does not, kill it by issuing \'fg\' command and pressing ctrl+c.
 
 Check that mmiotrace did not lose events due to a buffer filling up. Either:
 
-    $ grep -i lost mydump.txt
+```
+$ grep -i lost mydump.txt
+```
 
 which tells you exactly how many events were lost, or use:
 
-    $ dmesg
+```
+$ dmesg
+```
 
 to view your kernel log and look for \"mmiotrace has lost events\" warning. If events were lost, the trace is incomplete. You should enlarge the buffers and try again. Buffers are enlarged by first seeing how large the current buffers are:
 
-    $ cat /sys/kernel/tracing/buffer_size_kb
+```
+$ cat /sys/kernel/tracing/buffer_size_kb
+```
 
 gives you a number. Approximately double this number and write it back, for instance:
 
-    $ echo 128000 > /sys/kernel/tracing/buffer_size_kb
+```
+$ echo 128000 > /sys/kernel/tracing/buffer_size_kb
+```
 
 Then start again from the top.
 
 If you are doing a trace for a driver project, e.g. Nouveau, you should also do the following before sending your results:
 
-    $ lspci -vvv > lspci.txt
-    $ dmesg > dmesg.txt
-    $ tar zcf pciid-nick-mmiotrace.tar.gz mydump.txt lspci.txt dmesg.txt
+```
+$ lspci -vvv > lspci.txt
+$ dmesg > dmesg.txt
+$ tar zcf pciid-nick-mmiotrace.tar.gz mydump.txt lspci.txt dmesg.txt
+```
 
 and then send the .tar.gz file. The trace compresses considerably. Replace \"pciid\" and \"nick\" with the PCI ID or model name of your piece of hardware under investigation and your nickname.
 
@@ -100,12 +120,15 @@ Timestamp is in seconds with decimals. Physical is a PCI bus address, virtual is
 
 For instance, the following awk filter will pass all 32-bit writes that target physical addresses in the range \[0xfb73ce40, 0xfb800000\] :
 
-    $ awk '/W 4 / { adr=strtonum($5); if (adr >= 0xfb73ce40 &&
-    adr < 0xfb800000) print; }'
+```
+$ awk '/W 4 / { adr=strtonum($5); if (adr >= 0xfb73ce40 &&
+adr < 0xfb800000) print; }'
+```
 
 # Tools for Developers
 
 The user space tools include utilities for:
 
-:   -   replacing numeric addresses and values with hardware register names
-    -   replaying MMIO logs, i.e., re-executing the recorded writes
+: - replacing numeric addresses and values with hardware register names
+
+- replaying MMIO logs, i.e., re-executing the recorded writes

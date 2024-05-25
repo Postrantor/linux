@@ -10,7 +10,7 @@ SMIs are not serviced by the Linux kernel, which means that it does not even kno
 
 The hardware latency detector works by hogging one of the cpus for configurable amounts of time (with interrupts disabled), polling the CPU Time Stamp Counter for some period, then looking for gaps in the TSC data. Any gap indicates a time when the polling was interrupted and since the interrupts are disabled, the only thing that could do that would be an SMI or other hardware hiccup (or an NMI, but those can be tracked).
 
-Note that the hwlat detector should *NEVER* be used in a production environment. It is intended to be run manually to determine if the hardware platform has a problem with long system firmware service routines.
+Note that the hwlat detector should _NEVER_ be used in a production environment. It is intended to be run manually to determine if the hardware platform has a problem with long system firmware service routines.
 
 # Usage
 
@@ -18,18 +18,22 @@ Write the ASCII text \"hwlat\" into the current_tracer file of the tracing syste
 
 Example:
 
-    # echo hwlat > /sys/kernel/tracing/current_tracer
-    # echo 100 > /sys/kernel/tracing/tracing_thresh
+```
+# echo hwlat > /sys/kernel/tracing/current_tracer
+# echo 100 > /sys/kernel/tracing/tracing_thresh
+```
 
 The /sys/kernel/tracing/hwlat_detector interface contains the following files:
 
-> -   
+> -
 >
->     width - time period to sample with CPUs held (usecs)
+> ```
+> width - time period to sample with CPUs held (usecs)
 >
->     :   must be less than the total window size (enforced)
+> :   must be less than the total window size (enforced)
+> ```
 >
-> -   window - total period of sampling, width being inside (usecs)
+> - window - total period of sampling, width being inside (usecs)
 
 By default the width is set to 500,000 and window to 1,000,000, meaning that for every 1,000,000 usecs (1s) the hwlat detector will spin for 500,000 usecs (0.5s). If tracing_thresh contains zero when hwlat tracer is enabled, it will change to a default of 10 usecs. If any latencies that exceed the threshold is observed then the data will be written to the tracing ring buffer.
 
@@ -41,15 +45,15 @@ The following tracing directory files are used by the hwlat_detector:
 
 in /sys/kernel/tracing:
 
-> -   tracing_threshold - minimum latency value to be considered (usecs)
-> -   tracing_max_latency - maximum hardware latency actually observed (usecs)
-> -   tracing_cpumask - the CPUs to move the hwlat thread across
-> -   hwlat_detector/width - specified amount of time to spin within window (usecs)
-> -   hwlat_detector/window - amount of time between (width) runs (usecs)
-> -   hwlat_detector/mode - the thread mode
+> - tracing_threshold - minimum latency value to be considered (usecs)
+> - tracing_max_latency - maximum hardware latency actually observed (usecs)
+> - tracing_cpumask - the CPUs to move the hwlat thread across
+> - hwlat_detector/width - specified amount of time to spin within window (usecs)
+> - hwlat_detector/window - amount of time between (width) runs (usecs)
+> - hwlat_detector/mode - the thread mode
 
 By default, one hwlat detector\'s kernel thread will migrate across each CPU specified in cpumask at the beginning of a new window, in a round-robin fashion. This behavior can be changed by changing the thread mode, the available options are:
 
-> -   none: do not force migration
-> -   round-robin: migrate across each CPU specified in cpumask \[default\]
-> -   per-cpu: create one thread for each cpu in tracing_cpumask
+> - none: do not force migration
+> - round-robin: migrate across each CPU specified in cpumask \[default\]
+> - per-cpu: create one thread for each cpu in tracing_cpumask

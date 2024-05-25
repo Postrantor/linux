@@ -1,6 +1,6 @@
 ---
 author:
-- Beau Belgrave
+  - Beau Belgrave
 title: "user_events: User-based Event Tracing"
 ---
 
@@ -16,7 +16,7 @@ Typically programs will register a set of events that they wish to expose to too
 
 The structures referenced in this document are contained within the /include/uapi/linux/user_events.h file in the source tree.
 
-**NOTE:** *Both user_events_status and user_events_data are under the tracefs filesystem and may be mounted at different paths than above.*
+**NOTE:** _Both user_events_status and user_events_data are under the tracefs filesystem and may be mounted at different paths than above._
 
 # Registering
 
@@ -24,45 +24,47 @@ Registering within a user process is done via ioctl() out to the /sys/kernel/tra
 
 This command takes a packed struct user_reg as an argument:
 
-    struct user_reg {
-          /* Input: Size of the user_reg structure being used */
-          __u32 size;
+```
+struct user_reg {
+      /* Input: Size of the user_reg structure being used */
+      __u32 size;
 
-          /* Input: Bit in enable address to use */
-          __u8 enable_bit;
+      /* Input: Bit in enable address to use */
+      __u8 enable_bit;
 
-          /* Input: Enable size in bytes at address */
-          __u8 enable_size;
+      /* Input: Enable size in bytes at address */
+      __u8 enable_size;
 
-          /* Input: Flags to use, if any */
-          __u16 flags;
+      /* Input: Flags to use, if any */
+      __u16 flags;
 
-          /* Input: Address to update when enabled */
-          __u64 enable_addr;
+      /* Input: Address to update when enabled */
+      __u64 enable_addr;
 
-          /* Input: Pointer to string with event name, description and flags */
-          __u64 name_args;
+      /* Input: Pointer to string with event name, description and flags */
+      __u64 name_args;
 
-          /* Output: Index of the event to use when writing data */
-          __u32 write_index;
-    } __attribute__((__packed__));
+      /* Output: Index of the event to use when writing data */
+      __u32 write_index;
+} __attribute__((__packed__));
+```
 
 The struct user_reg requires all the above inputs to be set appropriately.
 
--   size: This must be set to sizeof(struct user_reg).
--   enable_bit: The bit to reflect the event status at the address specified by enable_addr.
--   enable_size: The size of the value specified by enable_addr. This must be 4 (32-bit) or 8 (64-bit). 64-bit values are only allowed to be used on 64-bit kernels, however, 32-bit can be used on all kernels.
--   flags: The flags to use, if any. Callers should first attempt to use flags and retry without flags to ensure support for lower versions of the kernel. If a flag is not supported -EINVAL is returned.
--   enable_addr: The address of the value to use to reflect event status. This must be naturally aligned and write accessible within the user program.
--   name_args: The name and arguments to describe the event, see command format for details.
+- size: This must be set to sizeof(struct user_reg).
+- enable_bit: The bit to reflect the event status at the address specified by enable_addr.
+- enable_size: The size of the value specified by enable_addr. This must be 4 (32-bit) or 8 (64-bit). 64-bit values are only allowed to be used on 64-bit kernels, however, 32-bit can be used on all kernels.
+- flags: The flags to use, if any. Callers should first attempt to use flags and retry without flags to ensure support for lower versions of the kernel. If a flag is not supported -EINVAL is returned.
+- enable_addr: The address of the value to use to reflect event status. This must be naturally aligned and write accessible within the user program.
+- name_args: The name and arguments to describe the event, see command format for details.
 
 The following flags are currently supported.
 
--   USER_EVENT_REG_PERSIST: The event will not delete upon the last reference closing. Callers may use this if an event should exist even after the process closes or unregisters the event. Requires CAP_PERFMON otherwise -EPERM is returned.
+- USER_EVENT_REG_PERSIST: The event will not delete upon the last reference closing. Callers may use this if an event should exist even after the process closes or unregisters the event. Requires CAP_PERFMON otherwise -EPERM is returned.
 
 Upon successful registration the following is set.
 
--   write_index: The index to use for this file descriptor that represents this event when writing out data. The index is unique to this instance of the file descriptor that was used for the registration. See writing data for details.
+- write_index: The index to use for this file descriptor that represents this event when writing out data. The index is unique to this instance of the file descriptor that was used for the registration. See writing data for details.
 
 User based events show up under tracefs like any other event under the subsystem named \"user_events\". This means tools that wish to attach to the events need to use /sys/kernel/tracing/events/user_events/\[name\]/enable or perf record -e user_events:\[name\] when attaching/recording.
 
@@ -72,7 +74,9 @@ User based events show up under tracefs like any other event under the subsystem
 
 The command string format is as follows:
 
-    name[:FLAG1[,FLAG2...]] [Field1[;Field2...]]
+```
+name[:FLAG1[,FLAG2...]] [Field1[;Field2...]]
+```
 
 ## Supported Flags
 
@@ -80,23 +84,29 @@ None yet
 
 ## Field Format
 
-    type name [size]
+```
+type name [size]
+```
 
 Basic types are supported (\_\_data_loc, u32, u64, int, char, char\[20\], etc). User programs are encouraged to use clearly sized types like u32.
 
-**NOTE:** *Long is not supported since size can vary between user and kernel.*
+**NOTE:** _Long is not supported since size can vary between user and kernel._
 
 The size is only valid for types that start with a struct prefix. This allows user programs to describe custom structs out to tools, if required.
 
 For example, a struct in C that looks like this:
 
-    struct mytype {
-      char data[20];
-    };
+```
+struct mytype {
+  char data[20];
+};
+```
 
 Would be represented by the following field:
 
-    struct mytype myname 20
+```
+struct mytype myname 20
+```
 
 # Deleting
 
@@ -112,28 +122,30 @@ If after registering an event it is no longer wanted to be updated then it can b
 
 This command takes a packed struct user_unreg as an argument:
 
-    struct user_unreg {
-          /* Input: Size of the user_unreg structure being used */
-          __u32 size;
+```
+struct user_unreg {
+      /* Input: Size of the user_unreg structure being used */
+      __u32 size;
 
-          /* Input: Bit to unregister */
-          __u8 disable_bit;
+      /* Input: Bit to unregister */
+      __u8 disable_bit;
 
-          /* Input: Reserved, set to 0 */
-          __u8 __reserved;
+      /* Input: Reserved, set to 0 */
+      __u8 __reserved;
 
-          /* Input: Reserved, set to 0 */
-          __u16 __reserved2;
+      /* Input: Reserved, set to 0 */
+      __u16 __reserved2;
 
-          /* Input: Address to unregister */
-          __u64 disable_addr;
-    } __attribute__((__packed__));
+      /* Input: Address to unregister */
+      __u64 disable_addr;
+} __attribute__((__packed__));
+```
 
 The struct user_unreg requires all the above inputs to be set appropriately.
 
--   size: This must be set to sizeof(struct user_unreg).
--   disable_bit: This must be set to the bit to disable (same bit that was previously registered via enable_bit).
--   disable_addr: This must be set to the address to disable (same address that was previously registered via enable_addr).
+- size: This must be set to sizeof(struct user_unreg).
+- disable_bit: This must be set to the bit to disable (same bit that was previously registered via enable_bit).
+- disable_addr: This must be set to the address to disable (same address that was previously registered via enable_addr).
 
 **NOTE:** Events are automatically unregistered when execve() is invoked. During fork() the registered events will be retained and must be unregistered manually in each process if wanted.
 
@@ -145,25 +157,31 @@ The kernel will update the specified bit that was registered for the event as to
 
 Administrators can easily check the status of all registered events by reading the user_events_status file directly via a terminal. The output is as follows:
 
-    Name [# Comments]
-    ...
+```
+Name [# Comments]
+...
 
-    Active: ActiveCount
-    Busy: BusyCount
+Active: ActiveCount
+Busy: BusyCount
+```
 
 For example, on a system that has a single event the output looks like this:
 
-    test
+```
+test
 
-    Active: 1
-    Busy: 0
+Active: 1
+Busy: 0
+```
 
 If a user enables the user event via ftrace, the output would change to this:
 
-    test # Used by ftrace
+```
+test # Used by ftrace
 
-    Active: 1
-    Busy: 1
+Active: 1
+Busy: 1
+```
 
 # Writing Data
 
@@ -173,32 +191,38 @@ For example, if write_index returned was 1 and I wanted to write out an int payl
 
 In memory this would look like this:
 
-    int index;
-    int payload;
+```
+int index;
+int payload;
+```
 
 User programs might have well known structs that they wish to use to emit out as payloads. In those cases writev() can be used, with the first vector being the index and the following vector(s) being the actual event payload.
 
 For example, if I have a struct like this:
 
-    struct payload {
-          int src;
-          int dst;
-          int flags;
-    } __attribute__((__packed__));
+```
+struct payload {
+      int src;
+      int dst;
+      int flags;
+} __attribute__((__packed__));
+```
 
 It\'s advised for user programs to do the following:
 
-    struct iovec io[2];
-    struct payload e;
+```
+struct iovec io[2];
+struct payload e;
 
-    io[0].iov_base = &write_index;
-    io[0].iov_len = sizeof(write_index);
-    io[1].iov_base = &e;
-    io[1].iov_len = sizeof(e);
+io[0].iov_base = &write_index;
+io[0].iov_len = sizeof(write_index);
+io[1].iov_base = &e;
+io[1].iov_len = sizeof(e);
 
-    writev(fd, (const struct iovec*)io, 2);
+writev(fd, (const struct iovec*)io, 2);
+```
 
-**NOTE:** *The write_index is not emitted out into the trace being recorded.*
+**NOTE:** _The write_index is not emitted out into the trace being recorded._
 
 # Example Code
 
