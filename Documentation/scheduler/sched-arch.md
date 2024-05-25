@@ -1,21 +1,20 @@
 ---
 tip: translate by baidu@2024-01-11 23:03:17
 title: CPU Scheduler implementation hints for architecture specific code
+Nick Piggin, 2005
 ---
-
-> Nick Piggin, 2005
 
 # Context switch
 
-1. Runqueue locking By default, the switch_to arch function is called with the runqueue locked. This is usually not a problem unless switch_to may need to take the runqueue lock. This is usually due to a wake up operation in the context switch.
+1. Runqueue locking By default, the `switch_to` arch function is called with the runqueue locked. This is usually not a problem unless `switch_to` may need to take the runqueue lock. This is usually due to a wake up operation in the context switch.
 
-> 1.运行队列锁定默认情况下，在运行队列锁定的情况下调用 switch_to-arch 函数。这通常不是问题，除非 switch_to 可能需要获取 runqueue 锁。这通常是由于上下文切换中的唤醒操作造成的。
+> 1. 运行队列锁定默认情况下，在运行队列锁定的情况下调用 switch_to-arch 函数。这通常不是问题，除非 switch_to 可能需要获取 runqueue 锁。这通常是由于上下文切换中的唤醒操作造成的。
 
-To request the scheduler call switch_to with the runqueue unlocked, you must [`#define __ARCH_WANT_UNLOCKED_CTXSW`] in a header file (typically the one where switch_to is defined).
+To request the scheduler call switch_to with the runqueue unlocked, you must [`#define __ARCH_WANT_UNLOCKED_CTXSW`] in a header file (typically the one where `switch_to` is defined).
 
-> 要在运行队列未锁定的情况下请求调度程序调用 switch_To，必须在头文件（通常是定义 switch_To 的文件）中[`#define __ARCH_WANT_unlocked_CTXSW`]。
+> 要在运行队列未锁定的情况下请求调度程序调用 switch_To，必须在头文件（通常是定义 switch_To 的文件）中。
 
-Unlocked context switches introduce only a very minor performance penalty to the core scheduler implementation in the CONFIG_SMP case.
+Unlocked context switches introduce only a very minor performance penalty to the core scheduler implementation in the `CONFIG_SMP` case.
 
 > 在 CONFIG_SMP 的情况下，未锁定的上下文开关只会给核心调度程序实现带来非常小的性能损失。
 
